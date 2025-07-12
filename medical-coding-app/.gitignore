@@ -1,0 +1,8 @@
+# Environment and secret config files
+.env
+env.txt
+
+# UMLS data and derived files (DO NOT COMMIT)
+umls_data/META/
+umls_data/quickumls_cache/
+umls_data/umls_lookup.db 

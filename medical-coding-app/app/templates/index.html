@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Coding App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container" style="max-width: 1200px; margin: 0 auto;">
+        <header>
+            <h1>Medical Coding Application</h1>
+            <p>Enter clinical text to extract UMLS concepts.</p>
+        </header>
+        <section style="margin-bottom:1em;">
+            <strong>What is UMLS?</strong><br>
+            <span style="font-size:0.97em; color:#444;">
+                The <a href="https://www.nlm.nih.gov/research/umls/" target="_blank" rel="noopener">Unified Medical Language System (UMLS)</a> is a set of biomedical vocabularies and standards developed by the U.S. National Library of Medicine. It enables interoperability between different health and biomedical information systems by providing a unified mapping of medical concepts, codes, and terms across coding systems like SNOMED CT, ICD-10, RxNorm, and more.
+            </span>
+        </section>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class=flashes>
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }}">{{ message }}</div>
+            {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
+
+        <main>
+            <form method="POST" action="" id="extract-form">
+                {{ form.hidden_tag() }}
+                <div class="form-group">
+                    <label for="similarity_cutoff">Similarity Cutoff: <span id="sim-value">{{ request.form.get('similarity_cutoff', '1.0') }}</span></label>
+                    <input type="range" id="similarity_cutoff" name="similarity_cutoff" min="0" max="1" step="0.01" value="{{ request.form.get('similarity_cutoff', '1.0') }}" style="width:200px;">
+                </div>
+                <div class="form-group">
+                    <input type="checkbox" id="only_icd10" name="only_icd10" value="1" {% if request.form.get('only_icd10') %}checked{% endif %}>
+                    <label for="only_icd10">Only if ICD-10 mapped</label>
+                </div>
+                <div class="form-group">
+                    {{ form.clinical_note.label(class="form-label") }}<br>
+                    {{ form.clinical_note(class="form-control", rows=15) }}
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 1em;">
+                    {{ form.submit(class="btn btn-primary") }}
+                    <span id="processing-indicator" style="display:none; text-align:center;">
+                        <span class="spinner" style="display:inline-block; width:24px; height:24px; border:3px solid #ccc; border-top:3px solid #333; border-radius:50%; animation: spin 1s linear infinite; vertical-align:middle;"></span>
+                        <span style="margin-left: 0.5em;">Processing text, please wait…</span>
+                    </span>
+                </div>
+            </form>
+            
+            {% if codes %}
+            <section class="results">
+                <h2>Extracted Concepts</h2>
+                <table style="width:100%;">
+                    <thead>
+                        <tr>
+                            <th>CUI</th>
+                            <th>Term</th>
+                            <th>Similarity</th>
+                            <th>Semantic Types</th>
+                            <th style="width:320px;">SNOMED Code(s)</th>
+                            <th>ICD-10 Code(s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if codes and codes|length > 0 %}
+                        {% for code in codes %}
+                        <tr>
+                            <td style="font-size:0.85em; color:#444;">{{ code.cui }}</td>
+                            <td>{{ code.term }}</td>
+                            <td>{{ "%.2f"|format(code.similarity) }}</td>
+                            <td style="font-size:0.85em; color:#444;">
+                                {% for st in code.semtypes %}
+                                    <div style="font-size:0.85em; color:#444;">
+                                        <span>{{ st }}</span>
+                                        <span style="font-size:0.85em; color:#888;"> — {{ semtype_map.get(st, 'Unknown') }}</span>
+                                    </div>
+                                {% endfor %}
+                            </td>
+                            <td style="font-size: 0.92em;">
+                                {% for sc in code.snomed_codes %}
+                                    <div style="font-size:0.85em; color:#444;">{{ sc.code }}: <span style="font-size:0.85em; color:#666;">{{ sc.desc }}</span></div>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% for icd in code.icd10_codes %}
+                                    <div>{{ icd.code }}: {{ icd.desc }}</div>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr><td colspan="6" style="text-align:center;">No codes found for this text.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </section>
+            {% endif %}
+        </main>
+        
+        <footer>
+            <p>&copy; 2025 Medical Coding App</p>
+        </footer>
+
+        <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        </style>
+        <script>
+        // Similarity slider value display
+        document.addEventListener('DOMContentLoaded', () => {
+            const slider = document.getElementById('similarity_cutoff');
+            const simValue = document.getElementById('sim-value');
+            if (slider && simValue) {
+                // Set initial value
+                simValue.textContent = slider.value;
+                slider.addEventListener('input', () => {
+                    simValue.textContent = slider.value;
+                });
+            }
+
+            // Show processing indicator on form submit
+            const form = document.getElementById('extract-form');
+            const indicator = document.getElementById('processing-indicator');
+            if (form && indicator) {
+                form.addEventListener('submit', () => {
+                    indicator.style.display = 'block';
+                });
+            }
+
+            // Make Enter (without Shift) submit the form from textarea
+            const textarea = document.querySelector('textarea[name="clinical_note"]');
+            const form2 = textarea?.closest('form');
+            if (textarea && form2) {
+                textarea.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        if (typeof form2.requestSubmit === 'function') {
+                            form2.requestSubmit();
+                        } else {
+                            form2.submit();
+                        }
+                    }
+                });
+            }
+        });
+        </script>
+    </div>
+</body>
+</html>

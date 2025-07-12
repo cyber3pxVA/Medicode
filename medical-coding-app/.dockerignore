@@ -1,0 +1,56 @@
+# Exclude UMLS data from Docker builds - this is mounted as a volume instead
+umls_data/
+temp_download/
+
+# Exclude Python cache and virtual environments
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+
+# Exclude development files
+.git/
+.gitignore
+README.md
+*.md
+.env
+.env.local
+.env.*.local
+
+# Exclude IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Exclude OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Exclude audit logs
+audit.log
+
+# Exclude test files
+tests/
+pytest.ini 

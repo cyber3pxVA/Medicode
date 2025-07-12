@@ -1,0 +1,20 @@
+services:
+  web:
+    build: ./medical-coding-app
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./medical-coding-app:/app
+      - ./medical-coding-app/umls_data:/app/umls_data
+      - ./medical-coding-app/umls_data/quickumls_cache:/app/umls_data/quickumls_cache
+    environment:
+      - FLASK_DEBUG=1
+      - UMLS_PATH=/app/umls_data
+      - DATABASE_URL=sqlite:////app/site.db
+    command: >
+      sh -c "
+        echo 'Initializing database...' &&
+        python init_db.py &&
+        echo 'Starting Flask application...' &&
+        python run.py
+      " 
