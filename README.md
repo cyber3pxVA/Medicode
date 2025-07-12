@@ -5,6 +5,59 @@ This application is designed to run **entirely inside Docker containers**. All d
 
 ---
 
+## About This Project & How It Works
+
+**Who built this?**  
+This app was built by a team of developers and clinical NLP specialists to help extract standardized medical codes from clinical text. It is designed for easy use, reproducibility, and legal compliance (no UMLS data is included).
+
+**What engines/services does it use?**
+- **QuickUMLS**: Fast engine for matching medical terms to UMLS concepts (CUIs)
+- **spaCy & medSpaCy**: NLP libraries for processing clinical language
+- **SQLite**: Lightweight database for fast code lookups (SNOMED, ICD-10)
+- **UMLS Metathesaurus**: The official source of medical concepts and codes (user must provide)
+- **Flask**: Web framework for the user interface and API
+
+**Folder Structure (Key Parts):**
+
+```
+medical-coding-app/
+│
+├── app/                  # Main application code
+│   ├── main/             # Web routes, forms, and main logic
+│   ├── nlp/              # NLP pipeline (QuickUMLS, spaCy)
+│   ├── models/           # Database models
+│   ├── utils/            # Utilities (UMLS lookup, audit, export, semantic types)
+│   ├── static/           # CSS and static files
+│   └── templates/        # HTML templates
+│
+├── umls_data/            # UMLS data (user-provided, not included)
+│   ├── META/             # Raw UMLS files (MRCONSO.RRF, etc.)
+│   └── quickumls_cache/  # QuickUMLS database/cache
+│
+├── umls/                 # Scripts for installing/processing UMLS data
+├── Dockerfile            # Docker build instructions
+├── docker-compose.yml    # Docker Compose config
+└── README.md             # This file
+```
+
+**How does the pipeline work? (Simple Terms)**
+1. **User enters clinical text** in the web UI and clicks "Extract" (or presses Enter).
+2. The app sends the text to the backend Flask server.
+3. The **NLP pipeline** (in `app/nlp/pipeline.py`) uses **QuickUMLS** and **spaCy** to:
+   - Split the text into sentences and words
+   - Find phrases that match medical concepts in the UMLS Metathesaurus
+   - Assign each match a CUI (Concept Unique Identifier), semantic type, and similarity score
+4. For each CUI, the app looks up related **SNOMED CT** and **ICD-10** codes using a fast **SQLite** database built from the UMLS files (see `app/utils/umls_lookup.py`).
+5. The results (CUI, term, codes, types, confidence) are shown in the web UI for review and export.
+
+**In short:**
+- The app uses NLP to find medical concepts in your text
+- It matches them to UMLS CUIs using QuickUMLS
+- It finds related SNOMED/ICD-10 codes for each concept
+- Everything runs inside Docker for easy setup and reproducibility
+
+---
+
 ## Prerequisites
 - **Docker**: Install Docker Desktop (Windows/Mac) or Docker Engine (Linux).
 - **Docker Compose**: Usually included with Docker Desktop.
