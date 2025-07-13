@@ -7,9 +7,6 @@ This application is designed to run **entirely inside Docker containers**. All d
 
 ## About This Project & How It Works
 
-**Who built this?**  
-This app was built by a team of developers and clinical NLP specialists to help extract standardized medical codes from clinical text. It is designed for easy use, reproducibility, and legal compliance (no UMLS data is included).
-
 **What engines/services does it use?**
 - **QuickUMLS**: Fast engine for matching medical terms to UMLS concepts (CUIs)
 - **spaCy & medSpaCy**: NLP libraries for processing clinical language
