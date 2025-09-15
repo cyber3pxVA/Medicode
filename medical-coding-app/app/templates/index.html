@@ -71,28 +71,21 @@
                         {% if codes and codes|length > 0 %}
                         {% for code in codes %}
                         <tr>
-                            <td style="font-size:0.85em; color:#444;">{{ code.cui }}</td>
-                            <td>{{ code.term }}</td>
-                            <td>{{ "%.2f"|format(code.similarity) }}</td>
-                            <td style="font-size:0.85em; color:#444;">
-                                {% for st in code.semtypes %}
-                                    <div style="font-size:0.85em; color:#444;">
-                                        <span>{{ st }}</span>
-                                        <span style="font-size:0.85em; color:#888;"> — {{ semtype_map.get(st, 'Unknown') }}</span>
-                                    </div>
-                                {% endfor %}
-                            </td>
+                            <!-- ICD-10 Code(s) -->
                             <td>
                                 {% for icd in code.icd10_codes %}
                                     <div>{{ icd.code }}: {{ icd.desc }}</div>
                                 {% endfor %}
                             </td>
+                            <!-- SNOMED Code(s) -->
                             <td style="font-size: 0.92em;">
                                 {% for sc in code.snomed_codes %}
                                     <div style="font-size:0.85em; color:#444;">{{ sc.code }}: <span style="font-size:0.85em; color:#666;">{{ sc.desc }}</span></div>
                                 {% endfor %}
                             </td>
+                            <!-- Similarity -->
                             <td>{{ "%.2f"|format(code.similarity) }}</td>
+                            <!-- Semantic Types -->
                             <td style="font-size:0.85em; color:#444;">
                                 {% for st in code.semtypes %}
                                     <div style="font-size:0.85em; color:#444;">
@@ -101,7 +94,9 @@
                                     </div>
                                 {% endfor %}
                             </td>
+                            <!-- CUI -->
                             <td style="font-size:0.85em; color:#444;">{{ code.cui }}</td>
+                            <!-- Term -->
                             <td>{{ code.term }}</td>
                         </tr>
                         {% endfor %}
