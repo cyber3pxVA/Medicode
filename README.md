@@ -1,7 +1,9 @@
 # Medical Coding Application
 
 ## Overview
-This application is designed to run **entirely inside Docker containers**. All dependencies, models, and environment setup are handled by Docker. **You must have Docker and Docker Compose installed to use this application. Local (non-Docker) development is not supported.**
+This application runs **entirely inside Docker**. All Python dependencies (NLP, ML, database), spaCy models, and supporting system libraries are baked into the image. **Install Docker & Docker Compose; do not install Python locally for this project.**
+
+Recent update (2025-09-15): Upgraded base image to Python 3.10 and pinned heavy dependencies (`torch==2.1.2`, `faiss-cpu==1.7.4`, fixed `unqlite` version) to ensure reproducible builds.
 
 ---
 
@@ -56,32 +58,23 @@ medical-coding-app/
 ---
 
 ## Prerequisites
-- **Docker**: Install Docker Desktop (Windows/Mac) or Docker Engine (Linux).
-- **Docker Compose**: Usually included with Docker Desktop.
-- **UMLS Data**: Already present in the `umls_data/` directory.
+* **Docker** (Desktop on Win/Mac or Engine on Linux)
+* **Docker Compose** (v2+ bundled with recent Docker installs)
+* **UMLS Data** placed under `medical-coding-app/umls_data/META` (not distributed)
 
 ---
 
-## How to Run This Application (Docker-Only)
-
-### 1. Start the Application
-From the `medical-coding-app` directory, run:
+docker compose up --build
+## Run (Docker Only)
+From repository root:
 ```sh
-cd medical-coding-app
-# Build and start the app
 docker compose up --build
 ```
-
-The application will automatically:
-- Initialize the QuickUMLS database from the existing UMLS data
-- Start the Flask web server
-- Be ready for use
-
-### 2. Access the App
-Open your browser and go to:
-```
-http://127.0.0.1:5000
-```
+What happens on first run:
+1. Python 3.10 image builds with all NLP dependencies & models.
+2. Database tables auto-created (SQLite at `site.db`).
+3. QuickUMLS cache reused or built if absent.
+4. App serves at http://127.0.0.1:5000 (mapped from container port 5000).
 
 ---
 
@@ -139,19 +132,24 @@ This project is licensed under the MIT License. See the LICENSE file for details
 - Audit trail logging
 
 ## Technology Stack
-- **Python**: 3.8+
-- **Flask**: Web framework for building the application
-- **medSpaCy**: For clinical NLP processing
-- **QuickUMLS**: For concept mapping
-- **SQLite**: Local data storage
-- **UMLS Metathesaurus**: Local installation for medical terminology
+| Layer | Components |
+|-------|------------|
+| Runtime | Python 3.10 (Docker slim base) |
+| Web/API | Flask, Flask-WTF, SQLAlchemy |
+| NLP Core | spaCy 3.4.4, en_core_web_sm, en_core_sci_sm, NLTK |
+| Concept Mapping | QuickUMLS 1.4.x |
+| RAG / Semantic | sentence-transformers, transformers, torch 2.1.2, faiss-cpu 1.7.4 |
+| Storage | SQLite (primary), UnQLite (fast CUI/code cache) |
+| Data Source | UMLS Metathesaurus (user supplied) |
+
+Pinned heavy binaries: `torch==2.1.2`, `faiss-cpu==1.7.4`, `unqlite==0.9.9` for reproducibility.
 
 ## Contributing
 Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
 
 ---
 
-## If you use Cursor or an IDE
+## Developer Shortcuts
 
 You can manage the application entirely from your IDE terminal. Use the following Docker Compose commands:
 

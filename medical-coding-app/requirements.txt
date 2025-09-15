@@ -12,5 +12,16 @@ pandas==2.0.3
 numpy==1.24.3
 scikit-learn==1.3.0
 
+# RAG and Enhanced Lookup Dependencies
+# unqlite 0.8.3 not on PyPI; using latest 0.9.9
+unqlite==0.9.9
+sentence-transformers==2.2.2
+# Pin heavy libs for reproducibility / Python 3.10 wheels
+torch==2.1.2
+transformers>=4.21.0
+faiss-cpu==1.7.4
+dataclasses-json>=0.5.7
+
+# Development and Testing
 pytest
 pytest-mock

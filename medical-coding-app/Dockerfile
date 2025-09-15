@@ -1,33 +1,39 @@
-FROM python:3.8-slim
+FROM python:3.10-slim
 
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-# Set the working directory
 WORKDIR /app
 
-# Install system dependencies that might be needed for some python packages
-# For example, build-essential for C extensions, or libgomp1 for libraries like scikit-learn
+# System dependencies for scientific / NLP stack
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    build-essential gcc g++ make \
     libgomp1 \
+    libffi-dev libxml2-dev libxslt1-dev \
+    libjpeg-dev zlib1g-dev \
+    libssl-dev \
+    libblas-dev liblapack-dev gfortran \
+    curl git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the requirements file
-COPY requirements.txt .
+# Copy only requirements first to leverage Docker layer caching
+COPY requirements.txt ./
 
-# Install the dependencies
-RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.1/en_core_sci_sm-0.5.1.tar.gz
-RUN python -m spacy download en_core_web_sm
+# Install Python dependencies & language models in one layer to reduce image size
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.1/en_core_sci_sm-0.5.1.tar.gz \
+    && python -m spacy download en_core_web_sm \
+    && python - <<'EOF'
+import nltk
+nltk.download('stopwords', quiet=True)
+nltk.download('punkt', quiet=True)
+EOF
 
-# Pre-download NLTK data to avoid conflicts
-RUN python -c "import nltk; nltk.download('stopwords', quiet=True); nltk.download('punkt', quiet=True)"
-
-# Copy the application code
+# Copy the rest of the application code
 COPY . .
 
-# Expose the port the app runs on
 EXPOSE 5000
 
-# The command is now specified in docker-compose.yml
-# CMD ["flask", "run", "--host=0.0.0.0"]
+# Runtime command is defined in docker-compose.yml
