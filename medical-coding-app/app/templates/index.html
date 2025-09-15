@@ -63,8 +63,8 @@
                             <th>Term</th>
                             <th>Similarity</th>
                             <th>Semantic Types</th>
-                            <th style="width:320px;">SNOMED Code(s)</th>
                             <th>ICD-10 Code(s)</th>
+                            <th style="width:320px;">SNOMED Code(s)</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -82,14 +82,14 @@
                                     </div>
                                 {% endfor %}
                             </td>
-                            <td style="font-size: 0.92em;">
-                                {% for sc in code.snomed_codes %}
-                                    <div style="font-size:0.85em; color:#444;">{{ sc.code }}: <span style="font-size:0.85em; color:#666;">{{ sc.desc }}</span></div>
-                                {% endfor %}
-                            </td>
                             <td>
                                 {% for icd in code.icd10_codes %}
                                     <div>{{ icd.code }}: {{ icd.desc }}</div>
+                                {% endfor %}
+                            </td>
+                            <td style="font-size: 0.92em;">
+                                {% for sc in code.snomed_codes %}
+                                    <div style="font-size:0.85em; color:#444;">{{ sc.code }}: <span style="font-size:0.85em; color:#666;">{{ sc.desc }}</span></div>
                                 {% endfor %}
                             </td>
                         </tr>
