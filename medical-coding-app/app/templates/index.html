@@ -59,12 +59,12 @@
                 <table style="width:100%;">
                     <thead>
                         <tr>
-                            <th>CUI</th>
-                            <th>Term</th>
-                            <th>Similarity</th>
-                            <th>Semantic Types</th>
                             <th>ICD-10 Code(s)</th>
                             <th style="width:320px;">SNOMED Code(s)</th>
+                            <th>Similarity</th>
+                            <th>Semantic Types</th>
+                            <th>CUI</th>
+                            <th>Term</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -92,6 +92,17 @@
                                     <div style="font-size:0.85em; color:#444;">{{ sc.code }}: <span style="font-size:0.85em; color:#666;">{{ sc.desc }}</span></div>
                                 {% endfor %}
                             </td>
+                            <td>{{ "%.2f"|format(code.similarity) }}</td>
+                            <td style="font-size:0.85em; color:#444;">
+                                {% for st in code.semtypes %}
+                                    <div style="font-size:0.85em; color:#444;">
+                                        <span>{{ st }}</span>
+                                        <span style="font-size:0.85em; color:#888;"> — {{ semtype_map.get(st, 'Unknown') }}</span>
+                                    </div>
+                                {% endfor %}
+                            </td>
+                            <td style="font-size:0.85em; color:#444;">{{ code.cui }}</td>
+                            <td>{{ code.term }}</td>
                         </tr>
                         {% endfor %}
                         {% else %}
