@@ -28,3 +28,24 @@ Follow-ups / Potential Next Steps:
 
 -- End of entry --
 
+
+## 2025-09-15 (Supplemental: RAG Pipeline Attribution)
+
+Historical Context:
+- RAG-related implementation files (`rag_enhanced_lookup.py`, `rag_pipeline.py`, `test_rag.py`) show original local timestamps around 2025-08-14 ~20:45-20:46 (not previously committed to git).
+- These were integrated and version-controlled in commit `19b820f` on 2025-09-15 along with the Python 3.10 migration.
+
+Attribution:
+- RAG concept & initial code authored locally prior to repository commit (user-originated; no external commit history before 19b820f).
+
+Integration Notes:
+- Added documentation sections (app README) describing RAG features, performance expectations, and fallback behavior.
+- Current web routes still default to base pipeline unless explicitly toggled (future option: env var `USE_RAG=1`).
+
+Planned Enhancements:
+- Add runtime toggle (env var or query param) to switch between base and RAG pipelines.
+- Benchmark script to record median latency (base vs RAG) over sample notes.
+- Optional embedding cache persistence to speed warm starts.
+
+-- End of entry --
+

@@ -5,6 +5,12 @@ This application runs **entirely inside Docker**. All Python dependencies (NLP, 
 
 Recent update (2025-09-15): Upgraded base image to Python 3.10 and pinned heavy dependencies (`torch==2.1.2`, `faiss-cpu==1.7.4`, fixed `unqlite` version) to ensure reproducible builds.
 
+RAG Pipeline Timeline & Attribution:
+- Initial local draft of RAG components (untracked files: `rag_enhanced_lookup.py`, `rag_pipeline.py`, `test_rag.py`) created ~2025-08-14 (based on filesystem timestamps) prior to git integration.
+- Added to version control and documented in commit `19b820f` (2025-09-15) alongside environment modernization.
+- Concept & implementation originated within this project (no prior external git history).
+- Current app defaults to base pipeline; RAG code is available for testing (`test_rag.py`) and future route integration.
+
 ---
 
 ## About This Project & How It Works

@@ -29,6 +29,11 @@ This application now features **RAG (Retrieval-Augmented Generation)** enhanced 
 4. **Context scoring** ranks results by clinical relevance
 5. **Parallel processing** handles multiple concepts simultaneously
 
+### Timeline & Attribution
+- RAG component source files drafted locally ~2025-08-14 (pre-git state) and integrated into version control in commit `19b820f` on 2025-09-15.
+- Authored within this project; no prior external repository lineage.
+- Currently optional: base routes still default to the non-RAG pipeline pending a toggle or full integration.
+
 ---
 
 ## About This Project & How It Works
