@@ -68,6 +68,7 @@
                         <div style="display:flex; gap:0.5em;">
                             <button id="export-csv" type="button">Export CSV</button>
                             <button id="export-json" type="button">Export JSON</button>
+                            <button id="toggle-all-snomed" type="button">Expand All SNOMED</button>
                         </div>
                     </div>
                 <table style="width:100%;">
@@ -93,10 +94,20 @@
                             </td>
                             <!-- SNOMED Code(s) -->
                                 <td class="col-snomed" style="font-size: 0.92em;">
-                                {% for sc in code.snomed_codes %}
-                                    <div style="font-size:0.85em; color:#444;">{{ sc.code }}: <span style="font-size:0.85em; color:#666;">{{ sc.desc }}</span></div>
-                                {% endfor %}
-                            </td>
+                                    {% set total = code.snomed_codes|length %}
+                                    {% if total > 0 %}
+                                        {% set first = code.snomed_codes[0] %}
+                                        <div style="font-size:0.85em; color:#444;">{{ first.code }}: <span style="font-size:0.85em; color:#666;">{{ first.desc }}</span></div>
+                                        {% if total > 1 %}
+                                            <div class="snomed-extra" style="display:none; margin-top:0.4em;">
+                                                {% for sc in code.snomed_codes[1:] %}
+                                                    <div style="font-size:0.80em; color:#555;">{{ sc.code }}: <span style="font-size:0.80em; color:#777;">{{ sc.desc }}</span></div>
+                                                {% endfor %}
+                                            </div>
+                                            <button type="button" class="toggle-snomed" style="margin-top:0.3em; font-size:0.70em; background:none; border:1px solid #ccc; padding:2px 6px; cursor:pointer;">More ▾</button>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
                             <!-- Similarity -->
                                 <td class="col-similarity">{{ "%.2f"|format(code.similarity) }}</td>
                             <!-- Semantic Types -->
@@ -186,6 +197,37 @@
                     });
                 });
             });
+
+            // Per-row SNOMED toggle
+            document.querySelectorAll('.toggle-snomed').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const extra = btn.parentElement.querySelector('.snomed-extra');
+                    if (!extra) return;
+                    const expanded = extra.style.display !== 'none';
+                    if (expanded) {
+                        extra.style.display = 'none';
+                        btn.textContent = 'More ▾';
+                    } else {
+                        extra.style.display = '';
+                        btn.textContent = 'Less ▴';
+                    }
+                });
+            });
+
+            // Global expand/collapse all SNOMED
+            const globalBtn = document.getElementById('toggle-all-snomed');
+            if (globalBtn) {
+                globalBtn.addEventListener('click', () => {
+                    const extras = document.querySelectorAll('.snomed-extra');
+                    if (!extras.length) return;
+                    const anyHidden = Array.from(extras).some(e => e.style.display === 'none');
+                    extras.forEach(e => { e.style.display = anyHidden ? '' : 'none'; });
+                    document.querySelectorAll('.toggle-snomed').forEach(b => {
+                        b.textContent = anyHidden ? 'Less ▴' : 'More ▾';
+                    });
+                    globalBtn.textContent = anyHidden ? 'Collapse All SNOMED' : 'Expand All SNOMED';
+                });
+            }
 
             // Export functions (client-side, visible columns only)
             function getVisibleData() {
