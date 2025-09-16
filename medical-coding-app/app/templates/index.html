@@ -37,7 +37,8 @@
                     <input type="range" id="similarity_cutoff" name="similarity_cutoff" min="0" max="1" step="0.01" value="{{ request.form.get('similarity_cutoff', '1.0') }}" style="width:200px;">
                 </div>
                 <div class="form-group">
-                    <input type="checkbox" id="only_icd10" name="only_icd10" value="1" {% if request.form.get('only_icd10') %}checked{% endif %}>
+                    {# Checked by default if no form submission yet #}
+                    <input type="checkbox" id="only_icd10" name="only_icd10" value="1" {% if request.method != 'POST' or request.form.get('only_icd10') %}checked{% endif %}>
                     <label for="only_icd10">Only if ICD-10 mapped</label>
                 </div>
                 <div class="form-group">
