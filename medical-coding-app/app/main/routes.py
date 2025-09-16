@@ -81,6 +81,26 @@ def process_text():
 
         # Sort codes by relevance (RAG relevance if available, otherwise similarity)
         codes = sorted(codes, key=lambda c: c.get('rag_relevance', c.get('similarity', 0)), reverse=True)
+
+        # Deduplicate by ICD-10: if any ICD-10 code overlaps between entries, keep first occurrence
+        seen_icd10 = set()
+        deduped = []
+        for entry in codes:
+            icd_list = entry.get('icd10_codes') or []
+            # Collect raw code values
+            raw_codes = [i.get('code') for i in icd_list if isinstance(i, dict) and i.get('code')]
+            # If none, allow entry (cannot dedup on absent code)
+            if not raw_codes:
+                deduped.append(entry)
+                continue
+            # Check overlap
+            if any(rc in seen_icd10 for rc in raw_codes):
+                continue  # skip duplicate
+            # Record and keep
+            for rc in raw_codes:
+                seen_icd10.add(rc)
+            deduped.append(entry)
+        codes = deduped
         
         # Save to DB and render for manual validation
         for c in codes:

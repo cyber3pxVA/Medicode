@@ -56,15 +56,29 @@
             {% if codes %}
             <section class="results">
                 <h2>Extracted Concepts</h2>
+                    <div style="margin:0.5em 0 1em 0; display:flex; flex-wrap:wrap; gap:1.5em; align-items:center;">
+                        <div style="display:flex; gap:0.75em; flex-wrap:wrap;">
+                            <label><input type="checkbox" class="col-toggle" data-col="col-icd10" checked> ICD-10</label>
+                            <label><input type="checkbox" class="col-toggle" data-col="col-snomed" checked> SNOMED</label>
+                            <label><input type="checkbox" class="col-toggle" data-col="col-similarity" checked> Similarity</label>
+                            <label><input type="checkbox" class="col-toggle" data-col="col-semtypes" checked> Semantic Types</label>
+                            <label><input type="checkbox" class="col-toggle" data-col="col-cui" checked> CUI</label>
+                            <label><input type="checkbox" class="col-toggle" data-col="col-term" checked> Term</label>
+                        </div>
+                        <div style="display:flex; gap:0.5em;">
+                            <button id="export-csv" type="button">Export CSV</button>
+                            <button id="export-json" type="button">Export JSON</button>
+                        </div>
+                    </div>
                 <table style="width:100%;">
                     <thead>
                         <tr>
-                            <th>ICD-10 Code(s)</th>
-                            <th style="width:320px;">SNOMED Code(s)</th>
-                            <th>Similarity</th>
-                            <th>Semantic Types</th>
-                            <th>CUI</th>
-                            <th>Term</th>
+                                <th class="col-icd10">ICD-10 Code(s)</th>
+                                <th class="col-snomed" style="width:320px;">SNOMED Code(s)</th>
+                                <th class="col-similarity">Similarity</th>
+                                <th class="col-semtypes">Semantic Types</th>
+                                <th class="col-cui">CUI</th>
+                                <th class="col-term">Term</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -72,21 +86,21 @@
                         {% for code in codes %}
                         <tr>
                             <!-- ICD-10 Code(s) -->
-                            <td>
+                                <td class="col-icd10">
                                 {% for icd in code.icd10_codes %}
                                     <div>{{ icd.code }}: {{ icd.desc }}</div>
                                 {% endfor %}
                             </td>
                             <!-- SNOMED Code(s) -->
-                            <td style="font-size: 0.92em;">
+                                <td class="col-snomed" style="font-size: 0.92em;">
                                 {% for sc in code.snomed_codes %}
                                     <div style="font-size:0.85em; color:#444;">{{ sc.code }}: <span style="font-size:0.85em; color:#666;">{{ sc.desc }}</span></div>
                                 {% endfor %}
                             </td>
                             <!-- Similarity -->
-                            <td>{{ "%.2f"|format(code.similarity) }}</td>
+                                <td class="col-similarity">{{ "%.2f"|format(code.similarity) }}</td>
                             <!-- Semantic Types -->
-                            <td style="font-size:0.85em; color:#444;">
+                                <td class="col-semtypes" style="font-size:0.85em; color:#444;">
                                 {% for st in code.semtypes %}
                                     <div style="font-size:0.85em; color:#444;">
                                         <span>{{ st }}</span>
@@ -95,9 +109,9 @@
                                 {% endfor %}
                             </td>
                             <!-- CUI -->
-                            <td style="font-size:0.85em; color:#444;">{{ code.cui }}</td>
+                                <td class="col-cui" style="font-size:0.85em; color:#444;">{{ code.cui }}</td>
                             <!-- Term -->
-                            <td>{{ code.term }}</td>
+                                <td class="col-term">{{ code.term }}</td>
                         </tr>
                         {% endfor %}
                         {% else %}
@@ -158,6 +172,88 @@
             }
         });
         </script>
+        {% if codes %}
+        <script>
+        // Column toggle logic
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggles = document.querySelectorAll('.col-toggle');
+            toggles.forEach(cb => {
+                cb.addEventListener('change', () => {
+                    const cls = cb.getAttribute('data-col');
+                    const cells = document.querySelectorAll('.' + cls);
+                    cells.forEach(c => {
+                        c.style.display = cb.checked ? '' : 'none';
+                    });
+                });
+            });
+
+            // Export functions (client-side, visible columns only)
+            function getVisibleData() {
+                const active = Array.from(document.querySelectorAll('.col-toggle:checked')).map(cb => cb.getAttribute('data-col'));
+                const headerMap = {
+                    'col-icd10': 'icd10_codes',
+                    'col-snomed': 'snomed_codes',
+                    'col-similarity': 'similarity',
+                    'col-semtypes': 'semtypes',
+                    'col-cui': 'cui',
+                    'col-term': 'term'
+                };
+                return window.__codes.map(item => {
+                    const out = {};
+                    active.forEach(cls => {
+                        const key = headerMap[cls];
+                        out[key] = item[key];
+                    });
+                    return out;
+                });
+            }
+
+            function download(filename, text, mime) {
+                const blob = new Blob([text], {type: mime});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename; a.click();
+                setTimeout(() => URL.revokeObjectURL(url), 2000);
+            }
+
+            document.getElementById('export-json').addEventListener('click', () => {
+                const data = getVisibleData();
+                download('codes.json', JSON.stringify(data, null, 2), 'application/json');
+            });
+            document.getElementById('export-csv').addEventListener('click', () => {
+                const data = getVisibleData();
+                if (!data.length) { return; }
+                const headers = Object.keys(data[0]);
+                const lines = [headers.join(',')];
+                data.forEach(row => {
+                    lines.push(headers.map(h => {
+                        let val = row[h];
+                        if (Array.isArray(val)) {
+                            val = val.map(v => {
+                                if (typeof v === 'object' && v !== null) {
+                                    if ('code' in v && 'desc' in v) return `${v.code}: ${v.desc}`;
+                                    return JSON.stringify(v);
+                                }
+                                return v;
+                            }).join('|');
+                        } else if (typeof val === 'object' && val !== null) {
+                            val = JSON.stringify(val);
+                        }
+                        val = String(val).replace(/"/g,'""');
+                        if (/[",\n]/.test(val)) val = '"' + val + '"';
+                        return val;
+                    }).join(','));
+                });
+                download('codes.csv', lines.join('\n'), 'text/csv');
+            });
+        });
+        // Embed codes JSON for JS export
+    window.__codes = JSON.parse(document.getElementById('codes-json').textContent);
+        </script>
+        {% endif %}
+    {% if codes %}
+    <script id="codes-json" type="application/json">{{ codes|tojson|safe }}</script>
+    {% endif %}
     </div>
 </body>
 </html>
