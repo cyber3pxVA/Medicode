@@ -25,11 +25,7 @@ RUN python -m pip install --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements.txt \
     && pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.1/en_core_sci_sm-0.5.1.tar.gz \
     && python -m spacy download en_core_web_sm \
-    && python - <<'EOF'
-import nltk
-nltk.download('stopwords', quiet=True)
-nltk.download('punkt', quiet=True)
-EOF
+    && python -c "import nltk; nltk.download('stopwords', quiet=True); nltk.download('punkt', quiet=True)"
 
 # Copy the rest of the application code
 COPY medical-coding-app/ .
