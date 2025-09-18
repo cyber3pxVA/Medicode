@@ -1,0 +1,45 @@
+# Cloud Run Dockerfile with UMLS data from Cloud Storage
+FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+WORKDIR /app
+
+# System dependencies for scientific / NLP stack + Google Cloud SDK
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc g++ make \
+    libgomp1 \
+    libffi-dev libxml2-dev libxslt1-dev \
+    libjpeg-dev zlib1g-dev \
+    libssl-dev \
+    libblas-dev liblapack-dev gfortran \
+    curl git \
+    gnupg lsb-release \
+    && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && apt-get update && apt-get install -y google-cloud-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy only requirements first to leverage Docker layer caching
+COPY requirements.txt ./
+
+# Install Python dependencies & language models in one layer to reduce image size
+RUN python -m pip install --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt \
+    && pip install https://s3-us-west-2.amazonaws.com/ai2-s2-scispacy/releases/v0.5.1/en_core_sci_sm-0.5.1.tar.gz \
+    && python -m spacy download en_core_web_sm \
+    && python - <<'EOF'
+import nltk
+nltk.download('stopwords', quiet=True)
+nltk.download('punkt', quiet=True)
+EOF
+
+# Copy the rest of the application code
+COPY . .
+
+EXPOSE 8080
+
+# Default command for Cloud Run
+CMD ["sh", "-c", "python init_umls_from_storage.py && python init_db.py && python run.py"]
