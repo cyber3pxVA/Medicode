@@ -36,4 +36,5 @@ COPY medical-coding-app/ .
 
 EXPOSE 5000
 
-# Runtime command is defined in docker-compose.yml
+# Default command to run the application
+CMD ["python", "run.py"]
