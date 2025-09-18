@@ -9,8 +9,15 @@
 <body>
     <div class="container" style="max-width: 1200px; margin: 0 auto;">
         <header>
-            <h1>Medical Coding Application</h1>
-            <p>Enter clinical text to extract UMLS concepts.</p>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+                <div>
+                    <h1>Medical Coding Application</h1>
+                    <p>Enter clinical text to extract UMLS concepts.</p>
+                </div>
+                <div>
+                    <a href="{{ url_for('main.logout') }}" style="background: #dc3545; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-size: 14px;">Logout</a>
+                </div>
+            </div>
         </header>
         <section style="margin-bottom:1em;">
             <strong>What is UMLS?</strong><br>

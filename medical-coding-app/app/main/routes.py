@@ -1,11 +1,44 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app, session
 from app import get_nlp
 from app.utils.audit import log_audit_trail
 from .forms import ClinicalNoteForm
 from app.models.db import ExtractedCode, db
 from . import main
+from functools import wraps
+
+# Access code for testing
+ACCESS_CODE = "whiteriverjunction"
+
+def login_required(f):
+    """Decorator to require login for protected routes"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('authenticated'):
+            return redirect(url_for('main.login'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+@main.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        access_code = request.form.get('access_code')
+        if access_code == ACCESS_CODE:
+            session['authenticated'] = True
+            flash('Successfully logged in!', 'success')
+            return redirect(url_for('main.process_text'))
+        else:
+            flash('Invalid access code. Please try again.', 'error')
+    
+    return render_template('login.html')
+
+@main.route('/logout')
+def logout():
+    session.pop('authenticated', None)
+    flash('You have been logged out.', 'success')
+    return redirect(url_for('main.login'))
 
 @main.route('/extract', methods=['POST'])
+@login_required
 def extract_codes_route():
     clinical_text = request.json.get('clinical_text')
     if not clinical_text:
@@ -35,6 +68,7 @@ def extract_codes_route():
     return jsonify({'codes': codes})
 
 @main.route('/', methods=['GET', 'POST'])
+@login_required
 def process_text():
     form = ClinicalNoteForm()
     if form.validate_on_submit():
@@ -124,6 +158,7 @@ def process_text():
     return render_template('index.html', form=form, codes=None, semtype_map=SEMANTIC_TYPE_MAP)
 
 @main.route('/search', methods=['POST'])
+@login_required
 def semantic_search():
     """Semantic search endpoint for medical concepts."""
     query = request.json.get('query')
