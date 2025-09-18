@@ -34,6 +34,7 @@ EOF
 # Copy the rest of the application code
 COPY . .
 
-EXPOSE 5000
+EXPOSE 8080
 
-# Runtime command is defined in docker-compose.yml
+# Default command for Cloud Run (can be overridden by docker-compose)
+CMD ["python", "run.py"]

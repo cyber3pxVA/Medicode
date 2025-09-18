@@ -2,13 +2,14 @@ services:
   web:
     build: ./medical-coding-app
     ports:
-      - "5000:5000"
+      - "5000:8080"  # Map local port 5000 to container port 8080
     volumes:
       - ./medical-coding-app:/app
       - ./medical-coding-app/umls_data:/app/umls_data
       - ./medical-coding-app/umls_data/quickumls_cache:/app/umls_data/quickumls_cache
     environment:
       - FLASK_DEBUG=1
+      - PORT=8080  # Use 8080 inside container for Cloud Run compatibility
       - UMLS_PATH=/app/umls_data
       - DATABASE_URL=sqlite:////app/site.db
     command: >
@@ -17,4 +18,4 @@ services:
         python init_db.py &&
         echo 'Starting Flask application...' &&
         python run.py
-      " 
+      "

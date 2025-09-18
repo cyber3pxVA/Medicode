@@ -1,0 +1,28 @@
+# Ignore files for Cloud Build
+.git
+.gitignore
+README.md
+dev_log.md
+deploy-cloud-run.sh
+
+# Local development files
+.env
+.env.local
+docker-compose.yml
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+
+# Local databases and logs
+*.db
+*.log
+audit.log
+
+# UMLS data (too large for Cloud Build)
+umls_data/META/
+umls_data/quickumls_cache/
