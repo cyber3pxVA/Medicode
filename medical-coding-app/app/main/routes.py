@@ -44,28 +44,38 @@ def extract_codes_route():
     if not clinical_text:
         return jsonify({'error': 'No clinical text provided'}), 400
 
-    # Use RAG-enhanced pipeline if available, fallback to base pipeline
+    # Check UMLS availability
     try:
-        from app.nlp.rag_pipeline import get_rag_pipeline
-        umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
-        nlp_pipeline = get_rag_pipeline(umls_path)
-        codes = nlp_pipeline.process_text(clinical_text)
-    except Exception as e:
-        # Fallback to base pipeline
-        nlp_pipeline = get_nlp()
-        codes = nlp_pipeline.process_text(clinical_text)
+        # Use RAG-enhanced pipeline if available, fallback to base pipeline
+        try:
+            from app.nlp.rag_pipeline import get_rag_pipeline
+            umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
+            nlp_pipeline = get_rag_pipeline(umls_path)
+            codes = nlp_pipeline.process_text(clinical_text)
+        except Exception as e:
+            # Fallback to base pipeline
+            nlp_pipeline = get_nlp()
+            codes = nlp_pipeline.process_text(clinical_text)
+            
+            # Try to enrich with basic UMLS lookup if available
+            try:
+                from app.utils.umls_lookup import get_codes_for_cui
+                umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
+                for c in codes:
+                    extra_codes = get_codes_for_cui(c['cui'], umls_path)
+                    c['snomed_codes'] = extra_codes.get('snomed_codes', [])
+                    c['icd10_codes'] = extra_codes.get('icd10_codes', [])
+            except Exception:
+                # UMLS not ready - return codes without enrichment
+                for c in codes:
+                    c['snomed_codes'] = []
+                    c['icd10_codes'] = []
+
+        log_audit_trail(clinical_text, codes)
+        return jsonify({'codes': codes})
         
-        # Enrich with basic UMLS lookup
-        from app.utils.umls_lookup import get_codes_for_cui
-        umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
-        for c in codes:
-            extra_codes = get_codes_for_cui(c['cui'], umls_path)
-            c['snomed_codes'] = extra_codes.get('snomed_codes', [])
-            c['icd10_codes'] = extra_codes.get('icd10_codes', [])
-
-    log_audit_trail(clinical_text, codes)
-
-    return jsonify({'codes': codes})
+    except Exception as e:
+        return jsonify({'error': f'NLP processing failed: {str(e)}', 'umls_status': 'UMLS may still be initializing'}), 500
 
 @main.route('/', methods=['GET', 'POST'])
 @login_required
@@ -85,13 +95,20 @@ def process_text():
             nlp_pipeline = get_nlp()
             codes = nlp_pipeline.process_text(clinical_text)
             
-            # Enrich with basic UMLS lookup
-            from app.utils.umls_lookup import get_codes_for_cui
-            umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
-            for c in codes:
-                extra_codes = get_codes_for_cui(c['cui'], umls_path)
-                c['snomed_codes'] = extra_codes.get('snomed_codes', [])
-                c['icd10_codes'] = extra_codes.get('icd10_codes', [])
+            # Try to enrich with basic UMLS lookup if available
+            try:
+                from app.utils.umls_lookup import get_codes_for_cui
+                umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
+                for c in codes:
+                    extra_codes = get_codes_for_cui(c['cui'], umls_path)
+                    c['snomed_codes'] = extra_codes.get('snomed_codes', [])
+                    c['icd10_codes'] = extra_codes.get('icd10_codes', [])
+            except Exception:
+                # UMLS not ready - return codes without enrichment
+                for c in codes:
+                    c['snomed_codes'] = []
+                    c['icd10_codes'] = []
+                flash('UMLS data is still loading in background. Some features may be limited.', 'warning')
 
         # Get similarity threshold from form (default 0)
         try:
@@ -151,7 +168,7 @@ def process_text():
         db.session.commit()
         
         from app.utils.semantic_types import SEMANTIC_TYPE_MAP
-        flash('Codes extracted with RAG enhancement. Please validate.', 'success')
+        flash('Codes extracted. Please validate.', 'success')
         return render_template('index.html', form=form, codes=codes, semtype_map=SEMANTIC_TYPE_MAP)
         
     from app.utils.semantic_types import SEMANTIC_TYPE_MAP

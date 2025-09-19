@@ -37,5 +37,5 @@ COPY . .
 
 EXPOSE 8080
 
-# Default command for Cloud Run
-CMD ["sh", "-c", "python init_umls_from_storage.py && python init_db.py && python run.py"]
+# Default command for Cloud Run - start Flask immediately, load UMLS in background
+CMD ["python", "run.py"]
