@@ -29,7 +29,7 @@ steps:
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'UMLS_GCS_BUCKET=medicodeweb_umls_bucket,GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${_GOOGLE_CLIENT_SECRET}'
+      - 'UMLS_GCS_BUCKET=medicodeweb_umls_bucket,GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${_GOOGLE_CLIENT_SECRET},AUTHORIZED_USERS=${_AUTHORIZED_USERS}'
       - '--timeout'
       - '900'
       - '--memory'

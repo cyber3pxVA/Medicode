@@ -7,6 +7,25 @@ venv/
 env/
 instance/
 
+# UMLS DATA - NEVER COMMIT (COPYRIGHT PROTECTED)
+umls_data/
+**/umls_data/
+**/META/
+META/
+quickumls_cache/
+**/quickumls_cache/
+*.umls*
+*MRCONSO*
+*MRSTY*
+*MRREL*
+*MRSAT*
+*MRDEF*
+*MRHIER*
+*MRXW*
+*MRXNS*
+umls_lookup.db
+**/umls_lookup.db
+
 # Python cache
 __pycache__/
 *.py[cod]
@@ -51,4 +70,4 @@ wheels/
 
 # OS-specific files
 .DS_Store
-Thumbs.db 
+Thumbs.db

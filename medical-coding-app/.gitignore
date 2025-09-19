@@ -2,7 +2,33 @@
 .env
 env.txt
 
-# UMLS data and derived files (DO NOT COMMIT)
-umls_data/META/
-umls_data/quickumls_cache/
-umls_data/umls_lookup.db 
+# UMLS DATA - NEVER COMMIT (COPYRIGHT PROTECTED)
+# The UMLS Metathesaurus is licensed content from the National Library of Medicine
+# Users must obtain their own UMLS license at: https://uts.nlm.nih.gov/license.html
+umls_data/
+META/
+quickumls_cache/
+umls_lookup.db
+*.umls*
+*MRCONSO*
+*MRSTY*
+*MRREL*
+*MRSAT*
+*MRDEF*
+*MRHIER*
+*MRXW*
+*MRXNS*
+*AMBIG*
+*MRCUI*
+*MRCOLS*
+*MRDOC*
+*MRFILES*
+*MRMAP*
+*MRRANK*
+*MRSAB*
+*MRSMAP*
+
+# Other sensitive data
+*.key
+*.pem
+credentials.json

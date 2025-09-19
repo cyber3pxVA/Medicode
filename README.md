@@ -1,5 +1,17 @@
 # Medical Coding Application
 
+## ⚠️ IMPORTANT: UMLS License Compliance
+
+**This application requires UMLS Metathesaurus data, which is licensed content from the U.S. National Library of Medicine.**
+
+🔒 **Access is restricted to users with valid UMLS licenses only.**
+
+📋 **To obtain a UMLS license:** Visit https://uts.nlm.nih.gov/license.html
+
+📖 **Read the full compliance notice:** [UMLS_LICENSE_NOTICE.md](UMLS_LICENSE_NOTICE.md)
+
+---
+
 ## Overview
 This application runs **entirely inside Docker**. All Python dependencies (NLP, ML, database), spaCy models, and supporting system libraries are baked into the image. **Install Docker & Docker Compose; do not install Python locally for this project.**
 
@@ -10,6 +22,20 @@ RAG Pipeline Timeline & Attribution:
 - Added to version control and documented in commit `19b820f` (2025-09-15) alongside environment modernization.
 - Concept & implementation originated within this project (no prior external git history).
 - Current app defaults to base pipeline; RAG code is available for testing (`test_rag.py`) and future route integration.
+
+## 🔐 Security & Access Control
+
+### Authentication
+- **Google OAuth 2.0**: Users must sign in with authorized Gmail accounts
+- **Authorized User List**: Only pre-approved emails can access UMLS features
+- **Session Management**: Secure session handling with audit logging
+- **Development Mode**: Fallback access code for local development
+
+### UMLS License Compliance
+- **No UMLS Data in Repository**: All copyrighted data is excluded from version control
+- **Runtime Download**: UMLS data is downloaded from secure cloud storage at startup
+- **Access Restrictions**: Only users with valid UMLS licenses should be granted access
+- **Audit Trail**: All data access is logged for compliance purposes
 
 ---
 

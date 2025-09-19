@@ -6,6 +6,7 @@ from app.models.db import ExtractedCode, db
 from . import main
 from functools import wraps
 import os
+import time
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token
 import json
@@ -41,11 +42,22 @@ def login():
                 user_name = id_info.get('name')
                 
                 if user_email:
-                    session['authenticated'] = True
-                    session['user_email'] = user_email
-                    session['user_name'] = user_name
-                    flash(f'Successfully logged in as {user_name} ({user_email})!', 'success')
-                    return redirect(url_for('main.process_text'))
+                    # Check if user is authorized (UMLS license compliance)
+                    authorized_users = current_app.config.get('AUTHORIZED_USERS', [])
+                    
+                    if not authorized_users or user_email in authorized_users:
+                        session['authenticated'] = True
+                        session['user_email'] = user_email
+                        session['user_name'] = user_name
+                        flash(f'Successfully logged in as {user_name} ({user_email})!', 'success')
+                        
+                        # Log access for UMLS compliance audit
+                        log_audit_trail(f"User login: {user_email}", {"action": "login", "timestamp": str(time.time())})
+                        
+                        return redirect(url_for('main.process_text'))
+                    else:
+                        flash(f'Access denied. {user_email} is not authorized to use this application. Please contact the administrator.', 'error')
+                        current_app.logger.warning(f"Unauthorized access attempt by {user_email}")
                 else:
                     flash('Failed to get user email from Google.', 'error')
             except ValueError as e:
