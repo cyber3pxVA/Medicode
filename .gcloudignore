@@ -1,0 +1,6 @@
+# Root level gcloudignore
+medical-coding-app/umls_data/
+medical-coding-app/umls_data/**
+*.db
+*.log
+cloudrun-devlog.md

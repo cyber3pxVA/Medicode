@@ -23,6 +23,8 @@ __pycache__/
 *.log
 audit.log
 
-# UMLS data (too large for Cloud Build)
-umls_data/META/
-umls_data/quickumls_cache/
+# UMLS data (too large for Cloud Build) - NEVER UPLOAD THESE
+umls_data/
+umls_data/**
+medical-coding-app/umls_data/
+medical-coding-app/umls_data/**
