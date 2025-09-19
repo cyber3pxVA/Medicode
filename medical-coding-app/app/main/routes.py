@@ -5,9 +5,14 @@ from .forms import ClinicalNoteForm
 from app.models.db import ExtractedCode, db
 from . import main
 from functools import wraps
+import os
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token
+import json
 
-# Access code for testing
-ACCESS_CODE = "whiteriverjunction"
+# Google OAuth configuration
+GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
 
 def login_required(f):
     """Decorator to require login for protected routes"""
@@ -21,19 +26,50 @@ def login_required(f):
 @main.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
+        id_token_jwt = request.form.get('id_token')
         access_code = request.form.get('access_code')
-        if access_code == ACCESS_CODE:
-            session['authenticated'] = True
-            flash('Successfully logged in!', 'success')
-            return redirect(url_for('main.process_text'))
+        
+        if id_token_jwt:
+            # Google OAuth flow
+            try:
+                # Verify the Google ID token
+                id_info = id_token.verify_oauth2_token(
+                    id_token_jwt, google_requests.Request(), GOOGLE_CLIENT_ID)
+                
+                # Get user email
+                user_email = id_info.get('email')
+                user_name = id_info.get('name')
+                
+                if user_email:
+                    session['authenticated'] = True
+                    session['user_email'] = user_email
+                    session['user_name'] = user_name
+                    flash(f'Successfully logged in as {user_name} ({user_email})!', 'success')
+                    return redirect(url_for('main.process_text'))
+                else:
+                    flash('Failed to get user email from Google.', 'error')
+            except ValueError as e:
+                flash(f'Invalid Google token: {str(e)}', 'error')
+        elif access_code:
+            # Fallback access code for development
+            if access_code == "whiteriverjunction":
+                session['authenticated'] = True
+                session['user_email'] = 'dev@localhost'
+                session['user_name'] = 'Development User'
+                flash('Successfully logged in (Development Mode)!', 'success')
+                return redirect(url_for('main.process_text'))
+            else:
+                flash('Invalid access code. Please try again.', 'error')
         else:
-            flash('Invalid access code. Please try again.', 'error')
+            flash('No authentication credentials provided.', 'error')
     
-    return render_template('login.html')
+    return render_template('login.html', google_client_id=GOOGLE_CLIENT_ID)
 
 @main.route('/logout')
 def logout():
     session.pop('authenticated', None)
+    session.pop('user_email', None)
+    session.pop('user_name', None)
     flash('You have been logged out.', 'success')
     return redirect(url_for('main.login'))
 

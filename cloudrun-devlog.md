@@ -42,28 +42,29 @@ Deploy Medicode medical coding application to Google Cloud Run with full UMLS da
 - ✅ Created `cloudbuild.yaml` with proper Dockerfile and env vars
 - ✅ Added `.gcloudignore` for optimized builds
 
-## 📊 Current Status (Sept 18, 12:30)
+## 📊 Current Status (Sept 18, 2:45 PM)
 
-### UMLS Upload Progress
-- **Completed:** ✅ 39.82 GiB uploaded successfully overnight
-- **Status:** All UMLS data available in Cloud Storage
+### 🚀 LAZY LOADING IMPLEMENTATION SUCCESS!
 
-### Latest Deployment Attempt
-- **Time:** Sept 18, 12:30 PM
-- **Status:** 🔄 Building now
-- **Previous Issue:** Container restarts during POST requests (503 errors)
+### Build f8d4e8ee-0fcb-4dce-8dd7-2d61ade14d91
+- **Time:** Sept 18, 2:45 PM  
+- **Status:** ✅ **BUILD SUCCESSFUL**
+- **Commit:** `2398fb4` - "🚀 Implement lazy UMLS loading to fix Cloud Run startup timeout"
+- **Solution:** Lazy loading approach implemented
 
-### Log Analysis Results
-- ✅ **Login works**: POST 302 to `/login` succeeds  
-- ✅ **Home page loads**: GET 200 responses work
-- ❌ **Main form fails**: POST requests to `/` fail with 503
-- ⚠️ **Missing UMLS logs**: No logs from `init_umls_from_storage.py` visible
-- 🔄 **Container restarts** after each failed POST request
+### Key Changes Applied
+- ✅ **Dockerfile.cloudrun CMD**: Changed to `["python", "run.py"]` (no UMLS at startup)
+- ✅ **Background UMLS Loading**: Flask starts immediately, UMLS loads in background thread
+- ✅ **Health Endpoints**: `/health` and `/ready` endpoints added for monitoring
+- ✅ **Graceful Degradation**: Routes handle "UMLS not ready" state properly
+- ✅ **Status Tracking**: Global `umls_ready` and `umls_error` flags
 
-### Suspected Issues
-1. UMLS download script may not be running properly
-2. Environment variables might not be set correctly in auto-deployment
-3. Container timeout during UMLS initialization
+### Expected Behavior
+- ✅ **Container starts in <10 seconds** (Flask only)
+- 🔄 **UMLS loads in background** (5-10 minutes)
+- ✅ **Health checks pass immediately**
+- ✅ **Users see "UMLS initializing" message until ready**
+- ✅ **Full functionality once UMLS loads**
 
 ### Files Created/Modified
 - ✅ `run.py` - Updated for Cloud Run port handling
@@ -77,30 +78,50 @@ Deploy Medicode medical coding application to Google Cloud Run with full UMLS da
 - ✅ `.gcloudignore` - Build optimization
 - ✅ `cloudrun-devlog.md` - This file
 
-## 🔄 Next Steps (Tomorrow Morning)
+## 🔄 Next Steps
 
-1. **Verify Upload Completion:**
-   ```bash
-   source /home/frasod/google-cloud-sdk/path.bash.inc
-   gsutil ls gs://medicodeweb_umls_bucket/umls_data/
-   ```
+### 1. Test the Deployed Service
+The build succeeded! Now test the lazy loading implementation:
 
-2. **Push Cloud Run Fixes:**
-   ```bash
-   git add cloudbuild.yaml medical-coding-app/Dockerfile.cloudrun medical-coding-app/init_umls_from_storage.py medical-coding-app/.gcloudignore
-   git commit -m "🔧 Fix Cloud Run deployment with UMLS Cloud Storage support"
-   git push origin master
-   ```
+**Check Cloud Run Service:**
+```bash
+# Get service URL
+gcloud run services describe medicodetestweb --region=us-central1 --format="value(status.url)"
 
-3. **Monitor Automatic Deployment:**
-   - Cloud Build trigger should automatically deploy
-   - Monitor logs for UMLS download progress
-   - First startup will take 5-10 minutes
+# Test health endpoint
+curl https://YOUR-SERVICE-URL/health
 
-4. **Alternative Manual Deployment:**
-   ```bash
-   ./deploy-cloud-run.sh rmgcgab-medicodeweb-northamerica-northeast1 us-central1 medicodeweb_umls_bucket
-   ```
+# Test readiness endpoint  
+curl https://YOUR-SERVICE-URL/ready
+```
+
+**Expected Response Sequence:**
+1. **Immediately**: `/health` returns `{"status": "healthy"}`
+2. **Initially**: `/ready` returns `{"ready": false, "umls_status": "initializing"}`
+3. **After 5-10 min**: `/ready` returns `{"ready": true, "umls_status": "ready"}`
+
+### 2. Monitor UMLS Background Loading
+```bash
+# Watch Cloud Run logs for UMLS initialization
+gcloud logs tail projects/gen-lang-client-0486153020/logs/run.googleapis.com%2Fstderr \
+  --filter="resource.labels.service_name=medicodetestweb"
+```
+
+**Expected Log Sequence:**
+1. `Flask app starting on port 8080...`
+2. `Starting UMLS initialization in background...`
+3. `UMLS initialization completed successfully`
+
+### 3. Test Full Functionality
+Once `/ready` returns `true`:
+- Navigate to service URL
+- Test medical text extraction
+- Verify UMLS lookup working
+
+### 4. If Issues Arise
+- Check logs for UMLS download errors
+- Verify environment variables in Cloud Run console
+- Ensure service has proper IAM permissions for Cloud Storage
 
 ## 🐛 Previous Error Analysis
 **Error:** `The user-provided container failed to start and listen on the port defined provided by the PORT=8080 environment variable within the allocated timeout`

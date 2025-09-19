@@ -14,7 +14,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/medicodetestweb']
 
-  # Deploy to Cloud Run with UMLS environment variables
+  # Deploy to Cloud Run with UMLS and OAuth environment variables
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
     entrypoint: gcloud
     args:
@@ -29,7 +29,7 @@ steps:
       - 'managed'
       - '--allow-unauthenticated'
       - '--set-env-vars'
-      - 'UMLS_GCS_BUCKET=medicodeweb_umls_bucket'
+      - 'UMLS_GCS_BUCKET=medicodeweb_umls_bucket,GOOGLE_CLIENT_ID=${_GOOGLE_CLIENT_ID},GOOGLE_CLIENT_SECRET=${_GOOGLE_CLIENT_SECRET}'
       - '--timeout'
       - '900'
       - '--memory'

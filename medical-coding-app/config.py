@@ -7,3 +7,7 @@ class Config:
     UMLS_API_KEY = os.environ.get('UMLS_API_KEY')
     UMLS_PATH = os.environ.get('UMLS_PATH') or 'umls_data'
     DEBUG = os.environ.get('DEBUG', 'False').lower() in ('true', '1', 't')
+    
+    # Google OAuth Configuration
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+    GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
