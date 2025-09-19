@@ -4,7 +4,7 @@ steps:
     args: 
       - 'build'
       - '-t'
-      - 'gcr.io/$PROJECT_ID/medicodeweb'
+      - 'gcr.io/$PROJECT_ID/medicodetestweb'
       - '-f'
       - 'Dockerfile.cloudrun'  # Use the Cloud Run-specific Dockerfile
       - '.'
@@ -12,7 +12,7 @@ steps:
 
   # Push the container image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/medicodeweb']
+    args: ['push', 'gcr.io/$PROJECT_ID/medicodetestweb']
 
   # Deploy to Cloud Run with UMLS environment variables
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
@@ -20,11 +20,11 @@ steps:
     args:
       - 'run'
       - 'deploy'
-      - 'medicodeweb'
+      - 'medicodetestweb'
       - '--image'
-      - 'gcr.io/$PROJECT_ID/medicodeweb'
+      - 'gcr.io/$PROJECT_ID/medicodetestweb'
       - '--region'
-      - 'northamerica-northeast1'
+      - 'northamerica-northeast2'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -38,7 +38,7 @@ steps:
       - '2'
 
 images:
-  - 'gcr.io/$PROJECT_ID/medicodeweb'
+  - 'gcr.io/$PROJECT_ID/medicodetestweb'
 
 options:
   substitution_option: 'ALLOW_LOOSE'
