@@ -1,132 +1,40 @@
-from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app, session
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash, current_app
 from app import get_nlp
 from app.utils.audit import log_audit_trail
 from .forms import ClinicalNoteForm
 from app.models.db import ExtractedCode, db
 from . import main
-from functools import wraps
-import os
-import time
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token
-import json
-
-# Google OAuth configuration
-GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
-GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
-
-def login_required(f):
-    """Decorator to require login for protected routes"""
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if not session.get('authenticated'):
-            return redirect(url_for('main.login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-@main.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        id_token_jwt = request.form.get('id_token')
-        access_code = request.form.get('access_code')
-        
-        if id_token_jwt:
-            # Google OAuth flow
-            try:
-                # Verify the Google ID token
-                id_info = id_token.verify_oauth2_token(
-                    id_token_jwt, google_requests.Request(), GOOGLE_CLIENT_ID)
-                
-                # Get user email
-                user_email = id_info.get('email')
-                user_name = id_info.get('name')
-                
-                if user_email:
-                    # Check if user is authorized (UMLS license compliance)
-                    authorized_users = current_app.config.get('AUTHORIZED_USERS', [])
-                    
-                    if not authorized_users or user_email in authorized_users:
-                        session['authenticated'] = True
-                        session['user_email'] = user_email
-                        session['user_name'] = user_name
-                        flash(f'Successfully logged in as {user_name} ({user_email})!', 'success')
-                        
-                        # Log access for UMLS compliance audit
-                        log_audit_trail(f"User login: {user_email}", {"action": "login", "timestamp": str(time.time())})
-                        
-                        return redirect(url_for('main.process_text'))
-                    else:
-                        flash(f'Access denied. {user_email} is not authorized to use this application. Please contact the administrator.', 'error')
-                        current_app.logger.warning(f"Unauthorized access attempt by {user_email}")
-                else:
-                    flash('Failed to get user email from Google.', 'error')
-            except ValueError as e:
-                flash(f'Invalid Google token: {str(e)}', 'error')
-        elif access_code:
-            # Fallback access code for development
-            if access_code == "whiteriverjunction":
-                session['authenticated'] = True
-                session['user_email'] = 'dev@localhost'
-                session['user_name'] = 'Development User'
-                flash('Successfully logged in (Development Mode)!', 'success')
-                return redirect(url_for('main.process_text'))
-            else:
-                flash('Invalid access code. Please try again.', 'error')
-        else:
-            flash('No authentication credentials provided.', 'error')
-    
-    return render_template('login.html', google_client_id=GOOGLE_CLIENT_ID)
-
-@main.route('/logout')
-def logout():
-    session.pop('authenticated', None)
-    session.pop('user_email', None)
-    session.pop('user_name', None)
-    flash('You have been logged out.', 'success')
-    return redirect(url_for('main.login'))
 
 @main.route('/extract', methods=['POST'])
-@login_required
 def extract_codes_route():
     clinical_text = request.json.get('clinical_text')
     if not clinical_text:
         return jsonify({'error': 'No clinical text provided'}), 400
 
-    # Check UMLS availability
+    # Use RAG-enhanced pipeline if available, fallback to base pipeline
     try:
-        # Use RAG-enhanced pipeline if available, fallback to base pipeline
-        try:
-            from app.nlp.rag_pipeline import get_rag_pipeline
-            umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
-            nlp_pipeline = get_rag_pipeline(umls_path)
-            codes = nlp_pipeline.process_text(clinical_text)
-        except Exception as e:
-            # Fallback to base pipeline
-            nlp_pipeline = get_nlp()
-            codes = nlp_pipeline.process_text(clinical_text)
-            
-            # Try to enrich with basic UMLS lookup if available
-            try:
-                from app.utils.umls_lookup import get_codes_for_cui
-                umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
-                for c in codes:
-                    extra_codes = get_codes_for_cui(c['cui'], umls_path)
-                    c['snomed_codes'] = extra_codes.get('snomed_codes', [])
-                    c['icd10_codes'] = extra_codes.get('icd10_codes', [])
-            except Exception:
-                # UMLS not ready - return codes without enrichment
-                for c in codes:
-                    c['snomed_codes'] = []
-                    c['icd10_codes'] = []
-
-        log_audit_trail(clinical_text, codes)
-        return jsonify({'codes': codes})
-        
+        from app.nlp.rag_pipeline import get_rag_pipeline
+        umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
+        nlp_pipeline = get_rag_pipeline(umls_path)
+        codes = nlp_pipeline.process_text(clinical_text)
     except Exception as e:
-        return jsonify({'error': f'NLP processing failed: {str(e)}', 'umls_status': 'UMLS may still be initializing'}), 500
+        # Fallback to base pipeline
+        nlp_pipeline = get_nlp()
+        codes = nlp_pipeline.process_text(clinical_text)
+        
+        # Enrich with basic UMLS lookup
+        from app.utils.umls_lookup import get_codes_for_cui
+        umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
+        for c in codes:
+            extra_codes = get_codes_for_cui(c['cui'], umls_path)
+            c['snomed_codes'] = extra_codes.get('snomed_codes', [])
+            c['icd10_codes'] = extra_codes.get('icd10_codes', [])
+
+    log_audit_trail(clinical_text, codes)
+
+    return jsonify({'codes': codes})
 
 @main.route('/', methods=['GET', 'POST'])
-@login_required
 def process_text():
     form = ClinicalNoteForm()
     if form.validate_on_submit():
@@ -143,20 +51,13 @@ def process_text():
             nlp_pipeline = get_nlp()
             codes = nlp_pipeline.process_text(clinical_text)
             
-            # Try to enrich with basic UMLS lookup if available
-            try:
-                from app.utils.umls_lookup import get_codes_for_cui
-                umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
-                for c in codes:
-                    extra_codes = get_codes_for_cui(c['cui'], umls_path)
-                    c['snomed_codes'] = extra_codes.get('snomed_codes', [])
-                    c['icd10_codes'] = extra_codes.get('icd10_codes', [])
-            except Exception:
-                # UMLS not ready - return codes without enrichment
-                for c in codes:
-                    c['snomed_codes'] = []
-                    c['icd10_codes'] = []
-                flash('UMLS data is still loading in background. Some features may be limited.', 'warning')
+            # Enrich with basic UMLS lookup
+            from app.utils.umls_lookup import get_codes_for_cui
+            umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
+            for c in codes:
+                extra_codes = get_codes_for_cui(c['cui'], umls_path)
+                c['snomed_codes'] = extra_codes.get('snomed_codes', [])
+                c['icd10_codes'] = extra_codes.get('icd10_codes', [])
 
         # Get similarity threshold from form (default 0)
         try:
@@ -216,14 +117,13 @@ def process_text():
         db.session.commit()
         
         from app.utils.semantic_types import SEMANTIC_TYPE_MAP
-        flash('Codes extracted. Please validate.', 'success')
+        flash('Codes extracted with RAG enhancement. Please validate.', 'success')
         return render_template('index.html', form=form, codes=codes, semtype_map=SEMANTIC_TYPE_MAP)
         
     from app.utils.semantic_types import SEMANTIC_TYPE_MAP
     return render_template('index.html', form=form, codes=None, semtype_map=SEMANTIC_TYPE_MAP)
 
 @main.route('/search', methods=['POST'])
-@login_required
 def semantic_search():
     """Semantic search endpoint for medical concepts."""
     query = request.json.get('query')
