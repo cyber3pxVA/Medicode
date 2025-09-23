@@ -26,16 +26,12 @@ RAG Pipeline Timeline & Attribution:
 ## 🔐 Security & Access Control
 
 ### Authentication
-- **Google OAuth 2.0**: Users must sign in with authorized Gmail accounts
-- **Authorized User List**: Only pre-approved emails can access UMLS features
-- **Session Management**: Secure session handling with audit logging
-- **Development Mode**: Fallback access code for local development
+- No authentication is bundled in this public repo. The app is intended for local use by individuals who already have UMLS access rights. If you deploy it publicly, add your own access controls (e.g., reverse proxy auth, SSO, or a simple login) to ensure only properly licensed users can use UMLS-backed features.
 
 ### UMLS License Compliance
-- **No UMLS Data in Repository**: All copyrighted data is excluded from version control
-- **Runtime Download**: UMLS data is downloaded from secure cloud storage at startup
-- **Access Restrictions**: Only users with valid UMLS licenses should be granted access
-- **Audit Trail**: All data access is logged for compliance purposes
+- No UMLS data is stored in this repository; you must supply your own data locally.
+- Do not redistribute UMLS data or derived artifacts. Keep your data outside of version control and public containers.
+- If you expose the app beyond your machine, ensure only users with valid UMLS licenses can access it and keep an audit trail as required by your policies.
 
 ---
 

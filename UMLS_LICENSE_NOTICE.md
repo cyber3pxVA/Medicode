@@ -38,31 +38,16 @@ The UMLS Metathesaurus is **licensed content** from the U.S. National Library of
 ### This Repository Compliance
 
 ✅ **Repository is Clean**: No UMLS data is stored in this Git repository
-✅ **Access Controls**: Google OAuth restricts access to authorized users
-✅ **Cloud Storage**: UMLS data is stored separately in Google Cloud Storage
-✅ **Download Only**: Application downloads UMLS data at runtime from authorized storage
+✅ **Separation of Data**: Keep UMLS data in a private location under your control
+✅ **Local Use by Licensed Users**: Ensure only licensed users operate the app and data
 
 ### User Authorization
 
-The application uses Google OAuth to ensure only authorized users can access UMLS functionality:
-
-1. **Authentication Required**: All users must sign in with Google
-2. **Authorized Email List**: Limit access to specific Gmail addresses
-3. **Session Management**: Secure session handling
-4. **Audit Logging**: Track all data access
+This public repo does not include authentication. If you deploy beyond local use, implement appropriate access control (e.g., SSO, reverse proxy auth) so only licensed users can access UMLS-backed features, and maintain an audit log.
 
 ### Setting Up Authorized Users
 
-Add authorized user emails to the application configuration:
-
-```python
-# In config.py or environment variables
-AUTHORIZED_USERS = [
-    "researcher1@university.edu",
-    "doctor@hospital.org", 
-    "student@medschool.edu"
-]
-```
+If you add authentication, restrict access to licensed users only per your organization policy.
 
 ### Legal Disclaimer
 
