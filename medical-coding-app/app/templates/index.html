@@ -60,6 +60,7 @@
                     <div style="margin:0.5em 0 1em 0; display:flex; flex-wrap:wrap; gap:1.5em; align-items:center;">
                         <div style="display:flex; gap:0.75em; flex-wrap:wrap;">
                             <label><input type="checkbox" class="col-toggle" data-col="col-icd10" checked> ICD-10</label>
+                            <label><input type="checkbox" class="col-toggle" data-col="col-drg" checked> DRG</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-snomed" checked> SNOMED</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-similarity" checked> Similarity</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-semtypes" checked> Semantic Types</label>
@@ -76,6 +77,7 @@
                     <thead>
                         <tr>
                                 <th class="col-icd10">ICD-10 Code(s)</th>
+                                <th class="col-drg">DRG(s)</th>
                                 <th class="col-snomed" style="width:320px;">SNOMED Code(s)</th>
                                 <th class="col-similarity">Similarity</th>
                                 <th class="col-semtypes">Semantic Types</th>
@@ -92,6 +94,14 @@
                                 {% for icd in code.icd10_codes %}
                                     <div>{{ icd.code }}: {{ icd.desc }}</div>
                                 {% endfor %}
+                            </td>
+                            <!-- DRG Code(s) -->
+                                <td class="col-drg" style="font-size:0.85em; color:#444;">
+                                {% if code.drg_codes %}
+                                    {% for drg in code.drg_codes %}
+                                        <div>{{ drg.drg }}: <span style="color:#666;">{{ drg.description }}</span></div>
+                                    {% endfor %}
+                                {% endif %}
                             </td>
                             <!-- SNOMED Code(s) -->
                                 <td class="col-snomed" style="font-size: 0.92em;">
@@ -235,6 +245,7 @@
                 const active = Array.from(document.querySelectorAll('.col-toggle:checked')).map(cb => cb.getAttribute('data-col'));
                 const headerMap = {
                     'col-icd10': 'icd10_codes',
+                    'col-drg': 'drg_codes',
                     'col-snomed': 'snomed_codes',
                     'col-similarity': 'similarity',
                     'col-semtypes': 'semtypes',
@@ -275,6 +286,7 @@
                             val = val.map(v => {
                                 if (typeof v === 'object' && v !== null) {
                                     if ('code' in v && 'desc' in v) return `${v.code}: ${v.desc}`;
+                                            if ('drg' in v && 'description' in v) return `${v.drg}: ${v.description}`;
                                     return JSON.stringify(v);
                                 }
                                 return v;

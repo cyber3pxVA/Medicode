@@ -194,6 +194,7 @@ This project is licensed under the MIT License. See the LICENSE file for details
 - **Context-aware relevance scoring**
 - **Fast UnQLite-based lookups**
 - **Semantic search capabilities**
+- **Optional DRG enrichment** (ICD-10 -> DRG mapping from user-provided open CSV)
 - Confidence scoring for mappings
 - Manual validation workflow
 - Export functionality (CSV, JSON)
@@ -251,3 +252,45 @@ Due to licensing restrictions, this project does **NOT** include UMLS Metathesau
 **Note:** The initial build may take several minutes as the app processes the UMLS data and builds the RAG-enhanced lookup database.
 
 If you are sharing this project, do **not** upload UMLS data or any derived files to public repositories or images.
+
+---
+
+## DRG (Diagnosis Related Group) Enrichment (Optional)
+
+The application can optionally enrich extracted ICD-10 codes with **MS-DRG** groupings if you provide an open-source mapping CSV.
+
+### How It Works
+1. After ICD-10 codes are identified for each concept, each code is looked up in an in-memory DRG map.
+2. Matching DRG entries (code + description) are added under `drg_codes` for that concept.
+3. A new DRG column appears in the UI (toggleable like other columns) and is included in exports when visible.
+
+### Provide a Mapping
+Set an environment variable (in your `.env`):
+```
+DRG_MAPPING_PATH=/app/drg_mapping.csv
+```
+Then mount or copy a CSV into the container at that path with columns (case-insensitive):
+```
+ICD10,DRG,DRG_DESCRIPTION
+```
+Example row:
+```
+E11.9,683,DIABETES W/O CC/MCC
+```
+
+### Sample File
+A minimal `drg_mapping.sample.csv` is included only to illustrate format (contains no proprietary CMS content). Duplicate it, rename to `drg_mapping.csv`, and supply your own full open dataset if licensing permits.
+
+### If Omitted
+If `DRG_MAPPING_PATH` is unset or the file is missing/invalid, enrichment is silently skipped and the DRG column won't appear.
+
+### Export Behavior
+- JSON export includes a `drg_codes` array (when visible)
+- CSV export flattens DRGs: `DRG: Description` separated by `|`
+
+### Implementation Notes
+- Loader code: `app/utils/drg_mapping.py`
+- Caches mapping in-process via `lru_cache`
+- Does not persist to database; ephemeral enrichment only
+
+---

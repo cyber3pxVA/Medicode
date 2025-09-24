@@ -49,3 +49,60 @@ Planned Enhancements:
 
 -- End of entry --
 
+
+## 2025-09-23
+
+Runtime & Deployment Adjustments:
+- Removed all Cloud Run specific artifacts (`cloudbuild.yaml`, `Dockerfile.cloudrun`, deploy scripts) to simplify to pure local/container workflow.
+- Added environment toggles:
+  - `SKIP_UMLS_DOWNLOAD=1` – skips background UMLS init script when local data already mounted.
+  - `UMLS_DB_READONLY=1` – opens `umls_lookup.db` in read-only mode (fails fast if DB missing and volume not writable).
+- Added defensive local data detection in `run.py` to bypass remote initialization when `META/` + `umls_lookup.db` present.
+- Implemented read-only aware logic in `app/utils/umls_lookup.py` (uses SQLite URI `mode=ro` when in readonly mode).
+
+Data Handling & Compliance:
+- Strengthened `.gitignore` to ensure UMLS raw files, lookup DB, QuickUMLS caches, and unqlite artifacts cannot be committed.
+- Verified no UMLS content tracked in git index (`git ls-files` scan returned none).
+
+Operational Changes:
+- Introduced minimal Docker run pattern that mounts only `umls_data` (writable) and skips heavy init on subsequent runs.
+- Documented that read-only mounts can break QuickUMLS / SQLite temp file creation; recommend writable bind for active use.
+
+Error Resolutions:
+- Fixed `sqlite3.OperationalError: unable to open database file` by switching to writable mount and adding explicit readonly toggle logic.
+- Added guidance for future immutable image approach (pre-baking DB & using `journal_mode=OFF`).
+
+Next Potential Improvements:
+- Multi-stage Docker build to reduce final image size by removing build toolchain.
+- Optional RAG toggle via environment variable (e.g., `USE_RAG=1`).
+- Add `/version` endpoint exposing git commit + model versions.
+- CI pipeline to run tests inside container.
+
+-- End of entry --
+
+
+## 2025-09-24
+
+Feature: Optional DRG (MS-DRG) Enrichment
+- Added `app/utils/drg_mapping.py` to load user-provided open CSV mapping (ICD10 -> DRG, DRG_DESCRIPTION)
+- Introduced environment variable `DRG_MAPPING_PATH` (default `drg_mapping.csv` in project root inside container)
+- Added `drg_codes` enrichment step in `app/main/routes.py` for both API and form-based extraction flows
+- Updated template (`index.html`) with DRG column, toggle, and export integration (CSV/JSON)
+- Added documentation to README describing how to supply mapping and format requirements
+- Added `drg_mapping.sample.csv` (illustrative only; no proprietary CMS data)
+
+Design Decisions:
+- No database schema change; DRG enrichment is transient, attached only to response payloads
+- Silent no-op if mapping file absent or malformed to avoid user-facing errors
+- CSV loader validates required columns case-insensitively and caches to avoid repeated IO
+
+Next Ideas / Enhancements:
+- Add inverse lookup (DRG -> representative ICD-10) semantic search
+- Optional flag in UI to hide DRG column by default if mapping small or incomplete
+- Validation script to report unmapped ICD-10 codes frequency for dataset quality assessment
+
+Compliance:
+- Ensured no proprietary DRG datasets committed; sample contains generic placeholder-like minimal content only
+
+-- End of entry --
+
