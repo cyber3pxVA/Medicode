@@ -5,3 +5,7 @@ from wtforms.validators import DataRequired
 class ClinicalNoteForm(FlaskForm):
     clinical_note = TextAreaField('Clinical Note', validators=[DataRequired()])
     submit = SubmitField('Extract Codes')
+    
+    # Temporarily disable CSRF for debugging
+    class Meta:
+        csrf = False

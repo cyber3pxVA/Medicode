@@ -240,9 +240,24 @@
             const form = document.getElementById('extract-form');
             const indicator = document.getElementById('processing-indicator');
             if (form && indicator) {
-                form.addEventListener('submit', () => {
+                console.log('DEBUG: Form and indicator found');
+                form.addEventListener('submit', (e) => {
+                    console.log('DEBUG: Form submitted');
                     indicator.style.display = 'block';
+                    
+                    // Check if clinical_note has content
+                    const textarea = document.querySelector('textarea[name="clinical_note"]');
+                    if (!textarea || !textarea.value.trim()) {
+                        console.log('DEBUG: No clinical note content');
+                        e.preventDefault();
+                        alert('Please enter some clinical text');
+                        indicator.style.display = 'none';
+                        return false;
+                    }
+                    console.log('DEBUG: Clinical note content:', textarea.value);
                 });
+            } else {
+                console.log('DEBUG: Form or indicator not found');
             }
 
             // Make Enter (without Shift) submit the form from textarea
@@ -263,6 +278,7 @@
         });
         </script>
         {% if codes %}
+    <script id="codes-json" type="application/json">{{ codes|tojson|safe }}</script>
         <script>
         // Column toggle logic
         document.addEventListener('DOMContentLoaded', () => {
@@ -382,9 +398,6 @@
     window.__codes = JSON.parse(document.getElementById('codes-json').textContent);
         </script>
         {% endif %}
-    {% if codes %}
-    <script id="codes-json" type="application/json">{{ codes|tojson|safe }}</script>
-    {% endif %}
     </div>
 </body>
 </html>
