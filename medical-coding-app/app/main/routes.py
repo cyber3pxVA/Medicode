@@ -24,6 +24,28 @@ def extract_codes_route():
         umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
         nlp_pipeline = get_rag_pipeline(umls_path)
         codes = nlp_pipeline.process_text(clinical_text)
+        # Normalize CUIs (canonical mapping) before enrichment/backfill
+        try:
+            from app.utils.cui_normalization import get_canonical_cui
+            for c in codes:
+                canon = get_canonical_cui(c.get('cui'))
+                if canon and canon != c.get('cui'):
+                    c['original_cui'] = c['cui']
+                    c['cui'] = canon
+        except Exception:
+            pass
+        # Backfill ICD-10 / SNOMED codes if RAG left them empty
+        try:
+            from app.utils.umls_lookup import get_codes_for_cui as _lookup_codes
+            for c in codes:
+                if (not c.get('icd10_codes')) or (not c.get('snomed_codes')):
+                    extra = _lookup_codes(c['cui'], umls_path)
+                    if not c.get('icd10_codes'):
+                        c['icd10_codes'] = extra.get('icd10_codes', [])
+                    if not c.get('snomed_codes'):
+                        c['snomed_codes'] = extra.get('snomed_codes', [])
+        except Exception:
+            pass
     except Exception as e:
         # Fallback to base pipeline
         nlp_pipeline = get_nlp()
@@ -60,6 +82,25 @@ def process_text():
             umls_path = current_app.config.get('UMLS_PATH', 'umls_data')
             nlp_pipeline = get_rag_pipeline(umls_path)
             codes = nlp_pipeline.process_text(clinical_text)
+            # Normalize CUIs first
+            try:
+                from app.utils.cui_normalization import get_canonical_cui
+                for c in codes:
+                    canon = get_canonical_cui(c.get('cui'))
+                    if canon and canon != c.get('cui'):
+                        c['original_cui'] = c['cui']
+                        c['cui'] = canon
+            except Exception:
+                pass
+            # Backfill codes if missing (RAG may not include all code types)
+            from app.utils.umls_lookup import get_codes_for_cui as _lookup_codes
+            for c in codes:
+                if (not c.get('icd10_codes')) or (not c.get('snomed_codes')):
+                    extra = _lookup_codes(c['cui'], umls_path)
+                    if not c.get('icd10_codes'):
+                        c['icd10_codes'] = extra.get('icd10_codes', [])
+                    if not c.get('snomed_codes'):
+                        c['snomed_codes'] = extra.get('snomed_codes', [])
         except Exception as e:
             nlp_pipeline = get_nlp()
             codes = nlp_pipeline.process_text(clinical_text)

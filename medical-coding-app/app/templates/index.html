@@ -57,6 +57,12 @@
             {% if codes %}
             <section class="results">
                 <h2>Extracted Concepts</h2>
+                    {% set any_drg = codes|selectattr('drg_codes')|select('truthy')|list %}
+                    {% if any_drg|length == 0 %}
+                        <div style="margin:0.5em 0 1em; padding:0.6em 0.9em; background:#fff8e1; border:1px solid #e0d6aa; font-size:0.85em; color:#665c28;">
+                            DRG enrichment inactive (no mapping loaded or no ICD-10 matches). Provide a CSV & set DRG_MAPPING_PATH to enable.
+                        </div>
+                    {% endif %}
                     <div style="margin:0.5em 0 1em 0; display:flex; flex-wrap:wrap; gap:1.5em; align-items:center;">
                         <div style="display:flex; gap:0.75em; flex-wrap:wrap;">
                             <label><input type="checkbox" class="col-toggle" data-col="col-icd10" checked> ICD-10</label>

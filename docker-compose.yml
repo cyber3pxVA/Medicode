@@ -9,9 +9,10 @@ services:
       - ./medical-coding-app/umls_data/quickumls_cache:/app/umls_data/quickumls_cache
     environment:
       - FLASK_DEBUG=1
-      - PORT=8080  # Use 8080 inside container for Cloud Run compatibility
+      - PORT=8080
       - UMLS_PATH=/app/umls_data
       - DATABASE_URL=sqlite:////app/site.db
+      - DRG_MAPPING_PATH=/app/drg_mapping.csv
     command: >
       sh -c "
         echo 'Initializing database...' &&

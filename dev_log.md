@@ -96,6 +96,18 @@ Design Decisions:
 - Silent no-op if mapping file absent or malformed to avoid user-facing errors
 - CSV loader validates required columns case-insensitively and caches to avoid repeated IO
 
+Bug Fix (Column Mapping):
+- Fixed critical bug in `drg_mapping.py` where CSV column mapping logic failed when fieldnames matched required columns
+- Issue: `col_map = {c: c for c in fieldnames if c.lower() in REQUIRED_COLUMNS}` created wrong key mappings
+- Solution: Proper mapping from lowercase required columns to actual CSV fieldnames
+- Result: DRG enrichment now works correctly (A00→371, E11→637, etc.)
+
+Testing & Validation:
+- Verified end-to-end DRG enrichment: cholera (A00) maps to DRG 371, diabetes (E11) maps to DRG 637
+- UI displays DRG column with proper toggle/export when mappings exist
+- Environment variable `DRG_MAPPING_PATH=/app/drg_mapping.csv` properly loaded via docker-compose
+- Backfill logic ensures ICD-10 codes populate even when RAG pipeline returns empty arrays
+
 Next Ideas / Enhancements:
 - Add inverse lookup (DRG -> representative ICD-10) semantic search
 - Optional flag in UI to hide DRG column by default if mapping small or incomplete
@@ -103,6 +115,7 @@ Next Ideas / Enhancements:
 
 Compliance:
 - Ensured no proprietary DRG datasets committed; sample contains generic placeholder-like minimal content only
+- Simple approach: user supplies open CSV, app enriches in-memory, no schema changes
 
 -- End of entry --
 

@@ -22,7 +22,7 @@ import os
 from functools import lru_cache
 from typing import List, Dict
 
-DEFAULT_PATH = os.environ.get("DRG_MAPPING_PATH", os.path.join(os.getcwd(), "drg_mapping.csv"))
+DEFAULT_PATH = os.environ.get("DRG_MAPPING_PATH", "drg_mapping.csv")
 
 REQUIRED_COLUMNS = {"icd10", "drg", "drg_description"}
 
@@ -47,7 +47,13 @@ def _load_mapping() -> Dict[str, List[Dict[str, str]]]:
                 if set(col_map.keys()) != REQUIRED_COLUMNS:
                     return mapping
             else:
-                col_map = {c: c for c in reader.fieldnames or [] if c.lower() in REQUIRED_COLUMNS}
+                # Direct mapping: map required column names to actual fieldnames
+                col_map = {}
+                for req in REQUIRED_COLUMNS:
+                    for actual in reader.fieldnames or []:
+                        if actual.lower() == req:
+                            col_map[req] = actual
+                            break
             for row in reader:
                 icd = row[col_map.get('icd10')].strip().upper()
                 drg = row[col_map.get('drg')].strip()
