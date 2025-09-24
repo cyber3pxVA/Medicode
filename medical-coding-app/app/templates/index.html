@@ -71,6 +71,7 @@
                     <div style="margin:0.5em 0 1em 0; display:flex; flex-wrap:wrap; gap:1.5em; align-items:center;">
                         <div style="display:flex; gap:0.75em; flex-wrap:wrap;">
                             <label><input type="checkbox" class="col-toggle" data-col="col-icd10" checked> ICD-10</label>
+                            <label><input type="checkbox" class="col-toggle" data-col="col-complexity" checked> Complexity</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-snomed" checked> SNOMED</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-similarity" checked> Similarity</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-semtypes" checked> Semantic Types</label>
@@ -86,7 +87,8 @@
                 <table style="width:100%;">
                     <thead>
                         <tr>
-                                <th class="col-icd10">ICD-10 Code(s) & Complexity</th>
+                                <th class="col-icd10">ICD-10</th>
+                                <th class="col-complexity">Complexity</th>
                                 <th class="col-snomed" style="width:320px;">SNOMED Code(s)</th>
                                 <th class="col-similarity">Similarity</th>
                                 <th class="col-semtypes">Semantic Types</th>
@@ -98,24 +100,28 @@
                         {% if codes and codes|length > 0 %}
                         {% for code in codes %}
                         <tr>
-                            <!-- ICD-10 Code(s) with Complexity -->
+                            <!-- ICD-10 Code(s) -->
                                 <td class="col-icd10">
                                 {% for icd in code.icd10_codes %}
                                     <div>
                                         <strong>{{ icd.code }}</strong>: {{ icd.desc }}
-                                        {% if code.drg_codes %}
-                                            {% for drg in code.drg_codes %}
-                                                {% if 'MCC' in drg.description %}
-                                                    <span style="color:#d32f2f; font-weight:bold; margin-left:8px;">[High Complexity]</span>
-                                                {% elif 'CC' in drg.description and 'MCC' not in drg.description %}
-                                                    <span style="color:#f57c00; font-weight:bold; margin-left:8px;">[Medium Complexity]</span>
-                                                {% elif 'W/O' in drg.description and ('CC' in drg.description or 'MCC' in drg.description) %}
-                                                    <span style="color:#388e3c; font-weight:bold; margin-left:8px;">[Low Complexity]</span>
-                                                {% endif %}
-                                            {% endfor %}
-                                        {% endif %}
                                     </div>
                                 {% endfor %}
+                            </td>
+                            <!-- Complexity -->
+                                <td class="col-complexity">
+                                {% if code.drg_codes %}
+                                    {% for drg in code.drg_codes %}
+                                        {% if 'MCC' in drg.description %}
+                                            <span style="color:#d32f2f; font-weight:bold;">High</span>
+                                        {% elif 'CC' in drg.description and 'MCC' not in drg.description %}
+                                            <span style="color:#f57c00; font-weight:bold;">Medium</span>
+                                        {% elif 'W/O' in drg.description and ('CC' in drg.description or 'MCC' in drg.description) %}
+                                            <span style="color:#388e3c; font-weight:bold;">Low</span>
+                                        {% endif %}
+                                        {% if not loop.last %}<br>{% endif %}
+                                    {% endfor %}
+                                {% endif %}
                             </td>
                             <!-- SNOMED Code(s) -->
                                 <td class="col-snomed" style="font-size: 0.92em;">

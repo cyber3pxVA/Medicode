@@ -85,6 +85,54 @@ medical-coding-app/
 
 ---
 
+## Quick Start (Updated 2025-09-23)
+
+Run with a writable bind mount for UMLS data (recommended):
+```
+docker build -t medical-coding-app:latest ./medical-coding-app
+
+docker run -d --name medical-coding-app \
+  -p 5000:8080 \
+  -e PORT=8080 \
+  -e FLASK_DEBUG=1 \
+  -e SKIP_UMLS_DOWNLOAD=1 \
+  -e UMLS_DB_READONLY=0 \
+  -e UMLS_PATH=/app/umls_data \
+  -v "$(pwd)/medical-coding-app/umls_data:/app/umls_data" \
+  medical-coding-app:latest
+```
+Then open: http://localhost:5000
+
+Health endpoints:
+- `GET /health` – basic liveness
+- `GET /ready` – readiness & UMLS init state
+
+## New Environment Toggles
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `SKIP_UMLS_DOWNLOAD` | 0 | When `1`, bypasses background remote UMLS init script if local data already present. |
+| `UMLS_DB_READONLY` | 0 | When `1`, opens `umls_lookup.db` in SQLite read-only URI mode (fails if DB missing). |
+| `UMLS_PATH` | `umls_data` | Base directory containing `META/` and lookup DB. |
+
+If you mount `umls_data` read-only you must pre-populate `umls_lookup.db` and QuickUMLS cache; otherwise use a writable mount.
+
+## UMLS Data Safety (Reinforced)
+The `.gitignore` now blocks:
+- Raw Metathesaurus files (MRCONSO, MRREL, etc.)
+- Lookup DB (`umls_lookup.db`), QuickUMLS caches, UnQLite artifacts
+Ensure you do NOT `git add` any derived or raw UMLS content.
+
+## Troubleshooting Snapshot
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| `sqlite3.OperationalError: unable to open database file` | Read-only mount, DB not prebuilt | Mount writable or prebuild DB, set `UMLS_DB_READONLY=1` only after DB exists |
+| QuickUMLS IO error | Cache needs write access | Use writable volume for `quickumls_cache` |
+| Slow first run | Building lookup DB & cache | Re-runs will skip with `SKIP_UMLS_DOWNLOAD=1` |
+
+<!-- ...existing content below retained ... -->
+
+---
+
 ## Prerequisites
 * **Docker** (Desktop on Win/Mac or Engine on Linux)
 * **Docker Compose** (v2+ bundled with recent Docker installs)
@@ -210,4 +258,4 @@ Due to licensing restrictions, this project does **NOT** include UMLS Metathesau
 
 **Note:** The initial build may take several minutes as the app processes the UMLS data.
 
-If you are sharing this project, do **not** upload UMLS data or any derived files to public repositories or images. 
+If you are sharing this project, do **not** upload UMLS data or any derived files to public repositories or images.

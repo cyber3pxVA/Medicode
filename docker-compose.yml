@@ -12,7 +12,7 @@ services:
       - PORT=8080
       - UMLS_PATH=/app/umls_data
       - DATABASE_URL=sqlite:////app/site.db
-      - DRG_MAPPING_PATH=/app/drg_mapping.csv
+      - DRG_MAPPING_PATH=/app/drg_mapping_improved.csv
     command: >
       sh -c "
         echo 'Initializing database...' &&

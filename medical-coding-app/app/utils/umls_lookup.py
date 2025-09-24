@@ -53,13 +53,28 @@ class UMLSLookup:
     def _init(self, umls_base_path: str) -> None:
         self.umls_base_path = Path(umls_base_path)
         self.db_path = self.umls_base_path / DB_FILENAME
+        # Detect read-only mode (env or mount) – skip build if cannot write
+        self.read_only = os.environ.get("UMLS_DB_READONLY", "0") == "1"
+        if not self.read_only:
+            # Also consider filesystem permissions; if parent not writable, force ro
+            try:
+                test_file = self.umls_base_path / "__writetest__"
+                test_file.touch(exist_ok=True)
+                test_file.unlink(missing_ok=True)
+            except Exception:
+                self.read_only = True
         self._ensure_db()
 
     def _ensure_db(self):
         """Create DB & import minimal data if the DB file does not exist."""
         first_time = not self.db_path.exists()
+        if first_time and self.read_only:
+            # Cannot build in read-only mode
+            raise RuntimeError(
+                f"UMLS lookup DB '{self.db_path}' missing but filesystem is read-only. "
+                "Either mount a writable volume or pre-populate the DB."
+            )
         if first_time:
-            # Only use a persistent connection for DB build
             conn = sqlite3.connect(self.db_path)
             self._build_db(conn)
             conn.close()
@@ -119,7 +134,12 @@ class UMLSLookup:
     def get_codes(self, cui: str) -> Dict[str, List[dict]]:
         """Return SNOMED & ICD-10 code lists (with descriptions) for the given CUI. Thread-safe."""
         db_path = self.db_path
-        conn = sqlite3.connect(db_path)
+        # Use read-only URI if in read-only mode to avoid journal creation attempts
+        if self.read_only:
+            uri = f"file:{db_path}?mode=ro"
+            conn = sqlite3.connect(uri, uri=True)
+        else:
+            conn = sqlite3.connect(db_path)
         try:
             cur = conn.cursor()
             placeholder = ",".join(["?"] * len(SOURCES))
@@ -143,4 +163,4 @@ def get_codes_for_cui(cui: str, umls_base_path: str) -> Dict[str, List[str]]:
     global _lookup_instance
     if _lookup_instance is None:
         _lookup_instance = UMLSLookup(umls_base_path)
-    return _lookup_instance.get_codes(cui) 
+    return _lookup_instance.get_codes(cui)

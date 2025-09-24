@@ -14,6 +14,13 @@ umls_data/
 META/
 quickumls_cache/
 **/quickumls_cache/
+# Lookup / cache DB artifacts
+umls_lookup.db
+**/umls_lookup.db
+*.unqlite
+*.unqlite-journal
+
+# Raw UMLS file patterns
 *.umls*
 *MRCONSO*
 *MRSTY*
@@ -23,8 +30,15 @@ quickumls_cache/
 *MRHIER*
 *MRXW*
 *MRXNS*
-umls_lookup.db
-**/umls_lookup.db
+*AMBIG*
+*MRCUI*
+*MRCOLS*
+*MRDOC*
+*MRFILES*
+*MRMAP*
+*MRRANK*
+*MRSAB*
+*MRSMAP*
 
 # Python cache
 __pycache__/
@@ -52,6 +66,7 @@ wheels/
 # Database
 *.sqlite3
 *.db
+site.db
 
 # Logs and temporary files
 *.log
