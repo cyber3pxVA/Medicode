@@ -71,7 +71,6 @@
                     <div style="margin:0.5em 0 1em 0; display:flex; flex-wrap:wrap; gap:1.5em; align-items:center;">
                         <div style="display:flex; gap:0.75em; flex-wrap:wrap;">
                             <label><input type="checkbox" class="col-toggle" data-col="col-icd10" checked> ICD-10</label>
-                            <label><input type="checkbox" class="col-toggle" data-col="col-drg" checked> DRG</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-snomed" checked> SNOMED</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-similarity" checked> Similarity</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-semtypes" checked> Semantic Types</label>
@@ -87,8 +86,7 @@
                 <table style="width:100%;">
                     <thead>
                         <tr>
-                                <th class="col-icd10">ICD-10 Code(s)</th>
-                                <th class="col-drg">DRG(s)</th>
+                                <th class="col-icd10">ICD-10 Code(s) & Complexity</th>
                                 <th class="col-snomed" style="width:320px;">SNOMED Code(s)</th>
                                 <th class="col-similarity">Similarity</th>
                                 <th class="col-semtypes">Semantic Types</th>
@@ -100,19 +98,24 @@
                         {% if codes and codes|length > 0 %}
                         {% for code in codes %}
                         <tr>
-                            <!-- ICD-10 Code(s) -->
+                            <!-- ICD-10 Code(s) with Complexity -->
                                 <td class="col-icd10">
                                 {% for icd in code.icd10_codes %}
-                                    <div>{{ icd.code }}: {{ icd.desc }}</div>
+                                    <div>
+                                        <strong>{{ icd.code }}</strong>: {{ icd.desc }}
+                                        {% if code.drg_codes %}
+                                            {% for drg in code.drg_codes %}
+                                                {% if 'MCC' in drg.description %}
+                                                    <span style="color:#d32f2f; font-weight:bold; margin-left:8px;">[High Complexity]</span>
+                                                {% elif 'CC' in drg.description and 'MCC' not in drg.description %}
+                                                    <span style="color:#f57c00; font-weight:bold; margin-left:8px;">[Medium Complexity]</span>
+                                                {% elif 'W/O' in drg.description and ('CC' in drg.description or 'MCC' in drg.description) %}
+                                                    <span style="color:#388e3c; font-weight:bold; margin-left:8px;">[Low Complexity]</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% endif %}
+                                    </div>
                                 {% endfor %}
-                            </td>
-                            <!-- DRG Code(s) -->
-                                <td class="col-drg" style="font-size:0.85em; color:#444;">
-                                {% if code.drg_codes %}
-                                    {% for drg in code.drg_codes %}
-                                        <div>{{ drg.drg }}: <span style="color:#666;">{{ drg.description }}</span></div>
-                                    {% endfor %}
-                                {% endif %}
                             </td>
                             <!-- SNOMED Code(s) -->
                                 <td class="col-snomed" style="font-size: 0.92em;">
@@ -152,6 +155,54 @@
                         {% endif %}
                     </tbody>
                 </table>
+
+                <!-- Inpatient DRG Section -->
+                <div style="margin-top: 2em; padding: 1em; background: #f8f9fa; border-radius: 6px;">
+                    <h3 style="margin: 0 0 1em 0; color: #495057;">Inpatient DRG Classifications</h3>
+                    <div style="display: flex; gap: 1em; flex-wrap: wrap; align-items: center; margin-bottom: 1em;">
+                        <label>
+                            <input type="checkbox" id="show-inpatient-drg" checked>
+                            <strong>Show Inpatient DRG Codes</strong>
+                        </label>
+                        <span style="font-size: 0.85em; color: #6c757d;">
+                            (DRG codes are typically used for inpatient hospital billing and case-mix classification)
+                        </span>
+                    </div>
+                    
+                    <div id="inpatient-drg-content">
+                        {% set has_drg = false %}
+                        {% for code in codes %}
+                            {% if code.drg_codes %}
+                                {% set has_drg = true %}
+                                <div style="margin-bottom: 1.5em; padding: 1em; background: white; border-radius: 4px; border-left: 4px solid #007bff;">
+                                    <div style="font-weight: bold; margin-bottom: 0.5em; color: #495057;">
+                                        {{ code.term }} ({{ code.cui }})
+                                    </div>
+                                    {% for drg in code.drg_codes %}
+                                        <div style="margin: 0.5em 0; padding: 0.5em; background: #e9ecef; border-radius: 3px;">
+                                            <strong style="color: #007bff;">DRG {{ drg.drg }}</strong>: 
+                                            <span style="color: #495057;">{{ drg.description }}</span>
+                                            {% if 'MCC' in drg.description %}
+                                                <span style="color: #d32f2f; font-weight: bold; margin-left: 8px; padding: 2px 6px; background: #ffebee; border-radius: 3px; font-size: 0.8em;">HIGH COMPLEXITY</span>
+                                            {% elif 'CC' in drg.description and 'MCC' not in drg.description %}
+                                                <span style="color: #f57c00; font-weight: bold; margin-left: 8px; padding: 2px 6px; background: #fff3e0; border-radius: 3px; font-size: 0.8em;">MEDIUM COMPLEXITY</span>
+                                            {% elif 'W/O' in drg.description and ('CC' in drg.description or 'MCC' in drg.description) %}
+                                                <span style="color: #388e3c; font-weight: bold; margin-left: 8px; padding: 2px 6px; background: #e8f5e8; border-radius: 3px; font-size: 0.8em;">LOW COMPLEXITY</span>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {% if not has_drg %}
+                            <div style="text-align: center; color: #6c757d; font-style: italic; padding: 2em;">
+                                No DRG classifications available for the extracted concepts.
+                                <br><small>DRG mappings require a CSV file with ICD-10 to DRG mappings.</small>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
             </section>
             {% endif %}
         </main>
@@ -220,6 +271,15 @@
                 });
             });
 
+            // DRG Inpatient Toggle
+            const drgToggle = document.getElementById('show-inpatient-drg');
+            const drgContent = document.getElementById('inpatient-drg-content');
+            if (drgToggle && drgContent) {
+                drgToggle.addEventListener('change', () => {
+                    drgContent.style.display = drgToggle.checked ? 'block' : 'none';
+                });
+            }
+
             // Per-row SNOMED toggle
             document.querySelectorAll('.toggle-snomed').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -256,7 +316,6 @@
                 const active = Array.from(document.querySelectorAll('.col-toggle:checked')).map(cb => cb.getAttribute('data-col'));
                 const headerMap = {
                     'col-icd10': 'icd10_codes',
-                    'col-drg': 'drg_codes',
                     'col-snomed': 'snomed_codes',
                     'col-similarity': 'similarity',
                     'col-semtypes': 'semtypes',
