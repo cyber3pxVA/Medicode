@@ -57,7 +57,12 @@
             {% if codes %}
             <section class="results">
                 <h2>Extracted Concepts</h2>
-                    {% set any_drg = codes|selectattr('drg_codes')|select('truthy')|list %}
+                    {% set any_drg = [] %}
+                    {% for code in codes %}
+                        {% if code.drg_codes and code.drg_codes|length > 0 %}
+                            {% set _ = any_drg.append(code) %}
+                        {% endif %}
+                    {% endfor %}
                     {% if any_drg|length == 0 %}
                         <div style="margin:0.5em 0 1em; padding:0.6em 0.9em; background:#fff8e1; border:1px solid #e0d6aa; font-size:0.85em; color:#665c28;">
                             DRG enrichment inactive (no mapping loaded or no ICD-10 matches). Provide a CSV & set DRG_MAPPING_PATH to enable.
