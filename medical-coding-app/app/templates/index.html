@@ -47,9 +47,10 @@
                 </div>
                 <div class="form-group" style="margin:0.5em 0 1em;">
                     <label>
-                        {{ form.inpatient() }} {{ form.inpatient.label.text }}
+                        {{ form.inpatient(id='inpatient-toggle') }} {{ form.inpatient.label.text }}
                     </label>
-                    <span style="font-size:0.75em; color:#666; margin-left:0.5em;">(Unchecked = outpatient / skip DRG mapping)</span>
+                    <span style="font-size:0.75em; color:#666; margin-left:0.5em;">(Unchecked = outpatient / DRG mapping hidden)</span>
+                    <span id="inpatient-badge" class="inpatient-badge{% if not inpatient_selected %} hidden{% endif %}">INPATIENT MODE</span>
                 </div>
                 <div class="form-group" style="display: flex; align-items: center; gap: 1em;">
                     {{ form.submit(class="btn btn-primary") }}
@@ -69,15 +70,19 @@
                             {% set _ = any_drg.append(code) %}
                         {% endif %}
                     {% endfor %}
-                    {% if any_drg|length == 0 %}
-                        <div style="margin:0.5em 0 1em; padding:0.6em 0.9em; background:#fff8e1; border:1px solid #e0d6aa; font-size:0.85em; color:#665c28;">
-                            DRG enrichment inactive (no mapping loaded or no ICD-10 matches). Provide a CSV & set DRG_MAPPING_PATH to enable.
-                        </div>
+                    {% if inpatient_selected %}
+                        {% if any_drg|length == 0 %}
+                            <div class="drg-status" style="margin:0.5em 0 1em; padding:0.6em 0.9em; background:#fff8e1; border:1px solid #e0d6aa; font-size:0.85em; color:#665c28;">
+                                DRG enrichment active but no DRG matches for extracted ICD-10 codes or mapping missing.
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="drg-status" style="display:none;"></div>
                     {% endif %}
                     <div style="margin:0.5em 0 1em 0; display:flex; flex-wrap:wrap; gap:1.5em; align-items:center;">
                         <div style="display:flex; gap:0.75em; flex-wrap:wrap;">
                             <label><input type="checkbox" class="col-toggle" data-col="col-icd10" checked> ICD-10</label>
-                            <label><input type="checkbox" class="col-toggle" data-col="col-complexity" checked> Complexity</label>
+                            <label class="complexity-col-toggle{% if not inpatient_selected %} hidden{% endif %}"><input type="checkbox" class="col-toggle" data-col="col-complexity" {% if inpatient_selected %}checked{% endif %}> Complexity</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-snomed" checked> SNOMED</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-similarity" checked> Similarity</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-semtypes" checked> Semantic Types</label>
@@ -94,7 +99,7 @@
                     <thead>
                         <tr>
                                 <th class="col-icd10">ICD-10</th>
-                                <th class="col-complexity">Complexity</th>
+                                <th class="col-complexity{% if not inpatient_selected %} hidden{% endif %}">Complexity</th>
                                 <th class="col-snomed" style="width:320px;">SNOMED Code(s)</th>
                                 <th class="col-similarity">Similarity</th>
                                 <th class="col-semtypes">Semantic Types</th>
@@ -115,7 +120,7 @@
                                 {% endfor %}
                             </td>
                             <!-- Complexity -->
-                                <td class="col-complexity">
+                                <td class="col-complexity{% if not inpatient_selected %} hidden{% endif %}">
                                 {% if code.drg_codes %}
                                     {% for drg in code.drg_codes %}
                                         {% if 'MCC' in drg.description %}
@@ -169,7 +174,7 @@
                 </table>
 
                 <!-- Inpatient DRG Section -->
-                <div style="margin-top: 2em; padding: 1em; background: #f8f9fa; border-radius: 6px;">
+                <div id="inpatient-drg-wrapper" class="inpatient-drg-wrapper{% if not inpatient_selected %} hidden{% endif %}">
                     <h3 style="margin: 0 0 1em 0; color: #495057;">Inpatient DRG Classifications</h3>
                     <div style="display: flex; gap: 1em; flex-wrap: wrap; align-items: center; margin-bottom: 1em;">
                         <label>
@@ -224,6 +229,9 @@
         </footer>
 
         <style>
+        .hidden { display: none; }
+        .inpatient-badge { margin-left:0.75em; background:#004085; color:#fff; padding:2px 8px; font-size:0.7em; border-radius:12px; }
+        .inpatient-drg-wrapper { margin-top: 2em; padding: 1em; background: #f8f9fa; border-radius: 6px; }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -302,6 +310,27 @@
             // DRG Inpatient Toggle
             const drgToggle = document.getElementById('show-inpatient-drg');
             const drgContent = document.getElementById('inpatient-drg-content');
+            // Inpatient checkbox dynamic behavior & persistence
+            const inpatientToggle = document.getElementById('inpatient-toggle');
+            const inpatientBadge = document.getElementById('inpatient-badge');
+            const complexityHeader = document.querySelector('th.col-complexity');
+            const complexityToggleWrapper = document.querySelector('.complexity-col-toggle');
+            const inpatientDrgWrapper = document.getElementById('inpatient-drg-wrapper');
+            if (inpatientToggle) {
+                // Restore preference
+                const saved = localStorage.getItem('inpatient_pref');
+                if (saved !== null && form2 && form2.method === 'POST' && !inpatientToggle.checked) {
+                    inpatientToggle.checked = saved === '1';
+                }
+                inpatientToggle.addEventListener('change', () => {
+                    const on = inpatientToggle.checked;
+                    localStorage.setItem('inpatient_pref', on ? '1' : '0');
+                    if (inpatientBadge) inpatientBadge.classList.toggle('hidden', !on);
+                    if (complexityHeader) complexityHeader.classList.toggle('hidden', !on);
+                    if (complexityToggleWrapper) complexityToggleWrapper.classList.toggle('hidden', !on);
+                    if (inpatientDrgWrapper) inpatientDrgWrapper.classList.toggle('hidden', !on);
+                });
+            }
             if (drgToggle && drgContent) {
                 drgToggle.addEventListener('change', () => {
                     drgContent.style.display = drgToggle.checked ? 'block' : 'none';

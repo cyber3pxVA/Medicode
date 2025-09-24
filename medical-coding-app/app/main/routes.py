@@ -85,6 +85,13 @@ def extract_codes_route():
 def process_text():
     form = ClinicalNoteForm()
     codes = None  # default
+    # Apply config default for initial inpatient checkbox if no POST
+    if request.method == 'GET':
+        try:
+            default_flag = current_app.config.get('INPATIENT_DRG_DEFAULT', 0)
+            form.inpatient.data = bool(default_flag)
+        except Exception:
+            pass
 
     if request.method == 'POST':
         clinical_text = request.form.get('clinical_note', '').strip()
@@ -206,10 +213,10 @@ def process_text():
             from app.utils.semantic_types import SEMANTIC_TYPE_MAP
             print(f"DEBUG: Returning {len(codes)} codes to template")
             flash('Codes extracted with RAG enhancement. Please validate.', 'success')
-            return render_template('index.html', form=form, codes=codes, semtype_map=SEMANTIC_TYPE_MAP)
+            return render_template('index.html', form=form, codes=codes, semtype_map=SEMANTIC_TYPE_MAP, inpatient_selected=inpatient_selected)
 
     from app.utils.semantic_types import SEMANTIC_TYPE_MAP
-    return render_template('index.html', form=form, codes=None, semtype_map=SEMANTIC_TYPE_MAP)
+    return render_template('index.html', form=form, codes=None, semtype_map=SEMANTIC_TYPE_MAP, inpatient_selected=form.inpatient.data)
 
 @main.route('/search', methods=['POST'])
 def semantic_search():
