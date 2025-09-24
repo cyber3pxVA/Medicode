@@ -86,3 +86,9 @@ site.db
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# DRG source raw data (CMS) - never commit
+medical-coding-app/drg_source/
+**/drg_source/
+*.zip
+*.ZIP

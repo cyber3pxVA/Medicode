@@ -122,6 +122,38 @@ The `.gitignore` now blocks:
 - Lookup DB (`umls_lookup.db`), QuickUMLS caches, UnQLite artifacts
 Ensure you do NOT `git add` any derived or raw UMLS content.
 
+## Optional: DRG (MS-DRG) Enrichment
+
+You can enrich ICD-10 codes with heuristic MS-DRG labels using a derived mapping CSV. This project deliberately does *not* ship CMS raw GROUPER logic or official proprietary distribution files.
+
+### Steps
+1. Read `medical-coding-app/DRG_SOURCE_NOTICE.md` for compliance & structure.
+2. Download CMS MS-DRG Definitions/Data Files ZIP for the fiscal year (e.g., FY2025) manually from the CMS site.
+3. Place the raw ZIP (and any extracted CSV like `MS-DRG Long Titles.csv`) under:
+  ```
+  medical-coding-app/drg_source/FY2025/
+  ```
+4. Create (or curate) an `icd_roots_to_drg.csv` mapping (columns: `ICD10,DRG`). This is heuristic—not official grouping output.
+5. Run inside the container to build the simplified mapping consumed by the app:
+  ```bash
+  docker compose exec web python scripts/build_drg_mapping.py \
+     --drg-titles drg_source/FY2025/MS-DRG_Long_Titles.csv \
+     --icd-map drg_source/FY2025/icd_roots_to_drg.csv \
+     --out drg_mapping_improved.csv
+  ```
+6. Set (or confirm) environment variable (in `.env` or docker compose) so the app loads it:
+  ```
+  DRG_MAPPING_PATH=/app/drg_mapping_improved.csv
+  ```
+7. Refresh the UI – DRG column appears for matched ICD roots.
+
+### Caveats & Disclaimer
+- This is **not** a substitute for running the official CMS GROUPER (which requires full claim context, diagnoses, procedures, sex, discharge status, etc.).
+- The mapping here is a *many-to-many heuristic* for exploratory enrichment only.
+- Do not commit raw CMS ZIPs or extracted proprietary tables—`.gitignore` already blocks `drg_source/` and `*.zip`.
+
+Detailed rationale and format expectations: `medical-coding-app/DRG_SOURCE_NOTICE.md`.
+
 ## Troubleshooting Snapshot
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|

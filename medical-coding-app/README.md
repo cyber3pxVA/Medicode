@@ -293,4 +293,18 @@ If `DRG_MAPPING_PATH` is unset or the file is missing/invalid, enrichment is sil
 - Caches mapping in-process via `lru_cache`
 - Does not persist to database; ephemeral enrichment only
 
+### Advanced (Building Your Own Mapping)
+See `DRG_SOURCE_NOTICE.md` for a reproducible workflow to construct a heuristic MS-DRG mapping from:
+1. CMS MS-DRG long titles file (for DRG + description)
+2. A manually curated or analytically derived ICD root → DRG association list
+
+Run the helper script (inside container):
+```
+python scripts/build_drg_mapping.py \
+  --drg-titles drg_source/FY2025/MS-DRG_Long_Titles.csv \
+  --icd-map drg_source/FY2025/icd_roots_to_drg.csv \
+  --out drg_mapping_improved.csv
+```
+Set `DRG_MAPPING_PATH=/app/drg_mapping_improved.csv` and restart. This is NOT official grouping logic; for production billing use the certified CMS GROUPER.
+
 ---

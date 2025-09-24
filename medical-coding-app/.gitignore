@@ -32,3 +32,8 @@ umls_lookup.db
 *.key
 *.pem
 credentials.json
+
+# DRG source raw data (CMS) - never commit
+drg_source/
+*.zip
+*.ZIP
