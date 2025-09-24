@@ -38,6 +38,15 @@ Recommended workflow:
    ```
 4. Restart the container (or just refresh page) to load the new mapping.
 
+### If You Only Have the Text Manual
+If the CMS download did not include a CSV of long titles but provides a folder of `.txt` files (e.g. `msdrgv43.icd10_ro_definitionsmanual_text`), first extract long titles:
+```bash
+docker compose exec web python scripts/extract_drg_long_titles_from_manual.py \
+    --input-dir drg_source/FY2026/msdrgv43.icd10_ro_definitionsmanual_text \
+    --out drg_source/FY2026/drg_long_titles_v43.csv
+```
+Then use `--drg-titles drg_source/FY2026/drg_long_titles_v43.csv` with the build script.
+
 ## File Format Expected by App
 `drg_mapping_improved.csv` should contain:
 ```

@@ -147,6 +147,14 @@ You can enrich ICD-10 codes with heuristic MS-DRG labels using a derived mapping
   ```
 7. Refresh the UI – DRG column appears for matched ICD roots.
 
+If you only have the definitions manual text bundle (folder with many `.txt` files), extract long titles first:
+```bash
+docker compose exec web python scripts/extract_drg_long_titles_from_manual.py \
+  --input-dir drg_source/FY2026/msdrgv43.icd10_ro_definitionsmanual_text \
+  --out drg_source/FY2026/drg_long_titles_v43.csv
+```
+Then pass that CSV as `--drg-titles`.
+
 ### Caveats & Disclaimer
 - This is **not** a substitute for running the official CMS GROUPER (which requires full claim context, diagnoses, procedures, sex, discharge status, etc.).
 - The mapping here is a *many-to-many heuristic* for exploratory enrichment only.

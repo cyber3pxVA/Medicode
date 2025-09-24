@@ -306,5 +306,12 @@ python scripts/build_drg_mapping.py \
   --out drg_mapping_improved.csv
 ```
 Set `DRG_MAPPING_PATH=/app/drg_mapping_improved.csv` and restart. This is NOT official grouping logic; for production billing use the certified CMS GROUPER.
+If you only have a definitions manual text bundle (multiple `.txt` files), first run:
+```
+python scripts/extract_drg_long_titles_from_manual.py \
+  --input-dir drg_source/FY2026/msdrgv43.icd10_ro_definitionsmanual_text \
+  --out drg_source/FY2026/drg_long_titles_v43.csv
+```
+Then use that CSV as the `--drg-titles` input.
 
 ---
