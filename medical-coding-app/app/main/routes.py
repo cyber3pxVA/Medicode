@@ -61,17 +61,22 @@ def extract_codes_route():
             c['snomed_codes'] = extra_codes.get('snomed_codes', [])
             c['icd10_codes'] = extra_codes.get('icd10_codes', [])
 
-    # DRG enrichment based on ICD-10 codes
-    for c in codes:
-        drg_set = []
-        for icd_entry in c.get('icd10_codes', []) or []:
-            icd_code = icd_entry.get('code') if isinstance(icd_entry, dict) else None
-            if icd_code:
-                drgs = get_drg_for_icd10(icd_code)
-                for d in drgs:
-                    if d not in drg_set:
-                        drg_set.append(d)
-        c['drg_codes'] = drg_set
+    # DRG enrichment always OFF in API unless explicitly flagged via query param (?inpatient=1)
+    inpatient_flag = request.args.get('inpatient') == '1'
+    if inpatient_flag:
+        for c in codes:
+            drg_set = []
+            for icd_entry in c.get('icd10_codes', []) or []:
+                icd_code = icd_entry.get('code') if isinstance(icd_entry, dict) else None
+                if icd_code:
+                    drgs = get_drg_for_icd10(icd_code)
+                    for d in drgs:
+                        if d not in drg_set:
+                            drg_set.append(d)
+            c['drg_codes'] = drg_set
+    else:
+        for c in codes:
+            c['drg_codes'] = []
 
     log_audit_trail(clinical_text, codes)
     return jsonify({'codes': codes})
@@ -162,17 +167,23 @@ def process_text():
                 deduped.append(entry)
             codes = deduped
 
-            # DRG enrichment
-            for c in codes:
-                drg_set = []
-                for icd_entry in c.get('icd10_codes', []) or []:
-                    icd_code = icd_entry.get('code') if isinstance(icd_entry, dict) else None
-                    if icd_code:
-                        drgs = get_drg_for_icd10(icd_code)
-                        for d in drgs:
-                            if d not in drg_set:
-                                drg_set.append(d)
-                c['drg_codes'] = drg_set
+            # DRG enrichment only if inpatient flag set in form (checkbox)
+            inpatient_selected = bool(request.form.get('inpatient')) or bool(request.form.get('inpatient', False))
+            if not inpatient_selected:
+                # Ensure field absent
+                for c in codes:
+                    c['drg_codes'] = []
+            else:
+                for c in codes:
+                    drg_set = []
+                    for icd_entry in c.get('icd10_codes', []) or []:
+                        icd_code = icd_entry.get('code') if isinstance(icd_entry, dict) else None
+                        if icd_code:
+                            drgs = get_drg_for_icd10(icd_code)
+                            for d in drgs:
+                                if d not in drg_set:
+                                    drg_set.append(d)
+                    c['drg_codes'] = drg_set
 
             # Persist extracted codes (optional; can be disabled if noisy)
             try:

@@ -313,5 +313,6 @@ python scripts/extract_drg_long_titles_from_manual.py \
   --out drg_source/FY2026/drg_long_titles_v43.csv
 ```
 Then use that CSV as the `--drg-titles` input.
+In the UI you must explicitly check "Inpatient Encounter" to enable DRG enrichment (unless `INPATIENT_DRG_DEFAULT=1` environment variable pre-checks it). The `/extract` JSON API requires `?inpatient=1` query parameter to include DRGs.
 
 ---

@@ -113,6 +113,7 @@ Health endpoints:
 | `SKIP_UMLS_DOWNLOAD` | 0 | When `1`, bypasses background remote UMLS init script if local data already present. |
 | `UMLS_DB_READONLY` | 0 | When `1`, opens `umls_lookup.db` in SQLite read-only URI mode (fails if DB missing). |
 | `UMLS_PATH` | `umls_data` | Base directory containing `META/` and lookup DB. |
+| `INPATIENT_DRG_DEFAULT` | `0` | When `1`, UI inpatient checkbox starts checked (DRG enrichment active if mapping present). |
 
 If you mount `umls_data` read-only you must pre-populate `umls_lookup.db` and QuickUMLS cache; otherwise use a writable mount.
 

@@ -45,6 +45,12 @@
                     {{ form.clinical_note.label(class="form-label") }}<br>
                     {{ form.clinical_note(class="form-control", rows=15) }}
                 </div>
+                <div class="form-group" style="margin:0.5em 0 1em;">
+                    <label>
+                        {{ form.inpatient() }} {{ form.inpatient.label.text }}
+                    </label>
+                    <span style="font-size:0.75em; color:#666; margin-left:0.5em;">(Unchecked = outpatient / skip DRG mapping)</span>
+                </div>
                 <div class="form-group" style="display: flex; align-items: center; gap: 1em;">
                     {{ form.submit(class="btn btn-primary") }}
                     <span id="processing-indicator" style="display:none; text-align:center;">
