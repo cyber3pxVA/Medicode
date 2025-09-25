@@ -4,6 +4,7 @@ from app.utils.audit import log_audit_trail
 from .forms import ClinicalNoteForm
 from app.models.db import ExtractedCode, db
 from . import main
+import re
 
 # DRG mapping (optional enrichment)
 try:
@@ -17,6 +18,12 @@ def extract_codes_route():
     clinical_text = request.json.get('clinical_text')
     if not clinical_text:
         return jsonify({'error': 'No clinical text provided'}), 400
+
+    # Fallback: extract explicit ICD-10 looking tokens from raw text (e.g., E11, J18.9, N18.3)
+    # Pattern captures: single letter + 2 digits (optionally a third), optional dot + 1-4 alphanum
+    # Avoid matching inside longer alphanumerics by using word boundaries.
+    icd_pattern = re.compile(r'\b([A-TV-Z][0-9]{2}[0-9]?(?:\.[0-9A-Z]{1,4})?)\b', re.IGNORECASE)
+    explicit_icd_tokens = set(m.upper() for m in icd_pattern.findall(clinical_text))
 
     # Use RAG-enhanced pipeline if available, fallback to base pipeline
     try:
@@ -63,6 +70,21 @@ def extract_codes_route():
 
     # DRG enrichment always OFF in API unless explicitly flagged via query param (?inpatient=1)
     inpatient_flag = request.args.get('inpatient') == '1'
+    # If pipeline/backfill produced no ICD-10 codes but we see explicit tokens, inject stub concepts
+    if explicit_icd_tokens:
+        seen_codes = { (entry.get('code') if isinstance(entry, dict) else None)
+                       for c in codes for entry in (c.get('icd10_codes') or []) }
+        missing_tokens = [tok for tok in explicit_icd_tokens if tok not in seen_codes]
+        if missing_tokens:
+            for mt in missing_tokens:
+                codes.append({
+                    'cui': f'AUTO_ICD_{mt}',
+                    'term': mt,
+                    'similarity': 1.0,
+                    'semtypes': [],
+                    'icd10_codes': [{'code': mt, 'desc': 'Explicit mention (regex fallback)'}],
+                    'snomed_codes': [],
+                })
     if inpatient_flag:
         for c in codes:
             drg_set = []

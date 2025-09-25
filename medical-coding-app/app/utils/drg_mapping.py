@@ -70,8 +70,30 @@ def _load_mapping() -> Dict[str, List[Dict[str, str]]]:
     return mapping
 
 def get_drg_for_icd10(icd_code: str) -> List[Dict[str, str]]:
+    """Return DRG list for an ICD-10 code with graceful fallbacks.
+
+    Fallback strategy:
+      1. Exact code
+      2. If dotted (e.g. J18.9) try without dot (J189) if present in mapping
+      3. Progressive truncation of trailing characters to match a root (e.g. N18.32 -> N18.3 -> N18)
+    Stops at first non-empty match.
+    """
     if not icd_code:
         return []
     code = icd_code.strip().upper()
     m = _load_mapping()
-    return m.get(code, [])
+    # 1. Exact
+    if code in m:
+        return m[code]
+    # 2. Dotless variant
+    if '.' in code:
+        dotless = code.replace('.', '')
+        if dotless in m:
+            return m[dotless]
+    # 3. Progressive truncation (keep at least 3 chars: letter + 2 digits)
+    cur = code
+    while len(cur) > 3:
+        cur = cur[:-1]
+        if cur in m:
+            return m[cur]
+    return []
