@@ -21,10 +21,10 @@ Usage:
       --out drg_source/FY2026/drg_long_titles_v43.csv
 
 Then feed into build script:
-  python scripts/build_drg_mapping.py \
+  python scripts.build_drg_mapping.py \
       --drg-titles drg_source/FY2026/drg_long_titles_v43.csv \
       --icd-map drg_source/FY2026/icd_roots_to_drg.csv \
-      --out drg_mapping_improved.csv
+      --out drg_mapping.csv
 
 Limitations:
 - Ignores DRG ranges that appear in narrative (e.g., "DRGs 981-983").

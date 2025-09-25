@@ -71,6 +71,10 @@ site.db
 # Logs and temporary files
 *.log
 *.log.*
+app.log
+app_debug.log
+audit.log
+.audit*
 .webassets-cache
 .pytest_cache/
 .tox/
@@ -92,3 +96,7 @@ medical-coding-app/drg_source/
 **/drg_source/
 *.zip
 *.ZIP
+start_app.sh
+start_*.sh
+*.bak
+*.backup

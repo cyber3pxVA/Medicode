@@ -140,11 +140,11 @@ You can enrich ICD-10 codes with heuristic MS-DRG labels using a derived mapping
   docker compose exec web python scripts/build_drg_mapping.py \
      --drg-titles drg_source/FY2025/MS-DRG_Long_Titles.csv \
      --icd-map drg_source/FY2025/icd_roots_to_drg.csv \
-     --out drg_mapping_improved.csv
+  --out drg_mapping.csv
   ```
 6. Set (or confirm) environment variable (in `.env` or docker compose) so the app loads it:
   ```
-  DRG_MAPPING_PATH=/app/drg_mapping_improved.csv
+   DRG_MAPPING_PATH=/app/drg_mapping.csv
   ```
 7. Refresh the UI – DRG column appears for matched ICD roots.
 

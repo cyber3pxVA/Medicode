@@ -303,9 +303,9 @@ Run the helper script (inside container):
 python scripts/build_drg_mapping.py \
   --drg-titles drg_source/FY2025/MS-DRG_Long_Titles.csv \
   --icd-map drg_source/FY2025/icd_roots_to_drg.csv \
-  --out drg_mapping_improved.csv
+  --out drg_mapping.csv
 ```
-Set `DRG_MAPPING_PATH=/app/drg_mapping_improved.csv` and restart. This is NOT official grouping logic; for production billing use the certified CMS GROUPER.
+Set `DRG_MAPPING_PATH=/app/drg_mapping.csv` and restart. This is NOT official grouping logic; for production billing use the certified CMS GROUPER.
 If you only have a definitions manual text bundle (multiple `.txt` files), first run:
 ```
 python scripts/extract_drg_long_titles_from_manual.py \

@@ -22,7 +22,7 @@ medical-coding-app/drg_source/FY2025/
 (Adjust `FY2025` for other years.)
 
 ## Generating a Mapping CSV
-The application consumes a simplified mapping file referenced by the environment variable `DRG_MAPPING_PATH` (default `drg_mapping_improved.csv`).
+The application consumes a simplified mapping file referenced by the environment variable `DRG_MAPPING_PATH` (default `drg_mapping.csv`).
 
 Because CMS does not publish a direct one-to-one ICD-10 → DRG table (grouping is rule-based), any CSV you build here is **heuristic** and must NOT be treated as official for billing.
 
@@ -34,7 +34,7 @@ Recommended workflow:
    docker compose exec web python scripts/build_drg_mapping.py \
        --drg-titles drg_source/FY2025/MS-DRG_Long_Titles.csv \
        --icd-map drg_source/FY2025/icd_roots_to_drg.csv \
-       --out drg_mapping_improved.csv
+    --out drg_mapping.csv
    ```
 4. Restart the container (or just refresh page) to load the new mapping.
 
@@ -48,7 +48,7 @@ docker compose exec web python scripts/extract_drg_long_titles_from_manual.py \
 Then use `--drg-titles drg_source/FY2026/drg_long_titles_v43.csv` with the build script.
 
 ## File Format Expected by App
-`drg_mapping_improved.csv` should contain:
+`drg_mapping.csv` should contain:
 ```
 ICD10,DRG,DRG_DESCRIPTION
 E11,683,DIABETES W/O CC/MCC

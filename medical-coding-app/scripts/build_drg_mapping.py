@@ -15,7 +15,7 @@ Typical usage (inside container):
   python scripts/build_drg_mapping.py \
       --drg-titles drg_source/FY2025/MS-DRG_Long_Titles.csv \
       --icd-map drg_source/FY2025/icd_roots_to_drg.csv \
-      --out drg_mapping_improved.csv
+      --out drg_mapping.csv
 
 You may maintain the icd_roots_to_drg.csv manually or derive it from
 local analytics. Each line associates an ICD root (e.g. E11) with a
@@ -86,7 +86,7 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(description="Build heuristic DRG mapping CSV.")
     p.add_argument('--drg-titles', required=True, help='CSV with DRG,DRG_DESCRIPTION columns')
     p.add_argument('--icd-map', required=True, help='CSV with ICD10,DRG columns (roots or full codes)')
-    p.add_argument('--out', default='drg_mapping_improved.csv', help='Output CSV path')
+    p.add_argument('--out', default='drg_mapping.csv', help='Output CSV path')
     return p.parse_args(argv)
 
 
