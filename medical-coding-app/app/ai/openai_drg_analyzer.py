@@ -117,7 +117,8 @@ class OpenAIDRGAnalyzer:
 1. **Review and Validate ALL ICD-10 Codes** from the prior NLP routine:
    - Review ALL ICD-10 codes provided by the NLP extraction
    - For EACH code, determine if it should be KEPT or EXCLUDED
-   - **KEPT codes**: Select codes that are clinically appropriate and billable (rank by relevance)
+   - **KEPT codes**: Select ALL clinically appropriate and billable codes, then rank them by relevance (1 = most important)
+   - **Target**: Aim to keep at least 5-10 primary diagnoses if clinically supported by the note
    - **EXCLUDED codes**: List codes that are NOT appropriate with clear medical coding rationale
    - **Reasons to EXCLUDE (be very restrictive)**:
      * **NLP Misinterpretation**: Patient name mistaken for disease (e.g., "Rose" → rose fever), common words misidentified as medical terms
@@ -178,10 +179,34 @@ Return a JSON object with this structure:
 {
     "selected_icd10_codes": [
         {
+            "code": "I50.9",
+            "description": "Heart failure, unspecified",
+            "rank": 1,
+            "reason_kept": "Principal diagnosis, well-documented acute decompensation, impacts DRG assignment"
+        },
+        {
+            "code": "N17.9",
+            "description": "Acute kidney failure, unspecified",
+            "rank": 2,
+            "reason_kept": "Major complication/comorbidity (MCC), acute on chronic renal insufficiency documented"
+        },
+        {
+            "code": "E11.65",
+            "description": "Type 2 diabetes mellitus with hyperglycemia",
+            "rank": 3,
+            "reason_kept": "Active diagnosis with current treatment, impacts VERA complexity"
+        },
+        {
             "code": "I10",
             "description": "Essential hypertension",
-            "rank": 1,
-            "reason_kept": "Primary diagnosis, well-documented, impacts DRG assignment"
+            "rank": 4,
+            "reason_kept": "Chronic condition on active medication, contributes to overall complexity"
+        },
+        {
+            "code": "J44.1",
+            "description": "Chronic obstructive pulmonary disease with acute exacerbation",
+            "rank": 5,
+            "reason_kept": "Secondary diagnosis with current exacerbation, requires treatment"
         }
     ],
     "excluded_icd10_codes": [
@@ -337,11 +362,13 @@ Return a JSON object with this structure:
         prompt_parts.append("   - Family history (conditions of relatives, not patient)\n")
         prompt_parts.append("   - Negated or ruled out conditions\n")
         prompt_parts.append("   - Simple word misinterpretations by NLP\n")
-        prompt_parts.append("3. **KEEP** only codes with clear clinical documentation supporting PATIENT diagnosis\n")
+        prompt_parts.append("3. **KEEP** valid codes - aim for 5-10 primary diagnoses if supported by clinical documentation\n")
+        prompt_parts.append("   - Rank ALL kept codes by importance (1=most important for billing/DRG)\n")
+        prompt_parts.append("   - Include primary diagnosis, comorbidities, and chronic conditions\n")
         prompt_parts.append("4. Determine the most appropriate MS-DRG code(s) based on your selected ICD-10 codes\n")
         prompt_parts.append("5. Assess VHA VERA complexity level and provide coding recommendations\n")
         prompt_parts.append("6. Return your analysis in the specified JSON format\n")
-        prompt_parts.append("\n**Remember**: When uncertain about NLP extraction accuracy, EXCLUDE the code with clear reasoning.\n")
+        prompt_parts.append("\n**Remember**: Select MULTIPLE valid diagnoses (target 5-10 if available), not just one. When uncertain about NLP extraction accuracy, EXCLUDE the code with clear reasoning.\n")
         
         return "".join(prompt_parts)
     
