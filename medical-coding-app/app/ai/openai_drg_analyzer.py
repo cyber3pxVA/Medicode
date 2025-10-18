@@ -119,14 +119,19 @@ class OpenAIDRGAnalyzer:
    - For EACH code, determine if it should be KEPT or EXCLUDED
    - **KEPT codes**: Select codes that are clinically appropriate and billable (rank by relevance)
    - **EXCLUDED codes**: List codes that are NOT appropriate with clear medical coding rationale
-   - Reasons to EXCLUDE:
-     * Not clinically relevant to the encounter
-     * Insufficient documentation to support the code
-     * Duplicate or more specific code available
-     * Not a billable diagnosis (symptom when diagnosis is known)
-     * NLP extraction error (wrong context or negated finding)
+   - **Reasons to EXCLUDE (be very restrictive)**:
+     * **NLP Misinterpretation**: Patient name mistaken for disease (e.g., "Rose" → rose fever), common words misidentified as medical terms
+     * **Social History**: Conditions mentioned in social context (e.g., "patient's cat has diabetes", "family owns animals", "works with chemicals")
+     * **Family History**: Conditions affecting family members, not the patient (e.g., "mother has diabetes", "father died of MI")
+     * **Past Medical History**: Conditions explicitly stated as "history of" without current evidence or treatment
+     * **Negated Findings**: Conditions stated as denied, ruled out, or absent (e.g., "denies chest pain", "no history of diabetes")
+     * **Insufficient Documentation**: Code cannot be supported by clinical note content
+     * **Symptom vs Diagnosis**: Not a billable diagnosis when underlying cause is known (symptom code when diagnosis available)
+     * **Duplicate/Non-Specific**: More specific code available or duplicate representation
+     * **Contextual Errors**: Code extracted from wrong section (e.g., differential diagnosis, patient education, hypothetical scenarios)
    - Do NOT add any new ICD-10 codes not provided by NLP
    - Prioritize codes that impact VERA complexity and MS-DRG assignment
+   - **Be highly critical** - when in doubt about NLP extraction accuracy, EXCLUDE the code with explanation
 
 2. **Assign MS-DRG Code** (if applicable for inpatient encounters):
    - Determine the appropriate MS-DRG based on selected ICD-10 codes
@@ -189,6 +194,26 @@ Return a JSON object with this structure:
             "code": "Z79.4",
             "description": "Long term use of insulin",
             "reason_excluded": "Not documented in clinical note, NLP extraction error"
+        },
+        {
+            "code": "E11.9",
+            "description": "Type 2 diabetes mellitus without complications",
+            "reason_excluded": "Family history only - note states 'mother has diabetes', not patient diagnosis"
+        },
+        {
+            "code": "M79.3",
+            "description": "Panniculitis, unspecified",
+            "reason_excluded": "NLP misinterpreted patient surname 'Panniculitis' as medical condition"
+        },
+        {
+            "code": "Z91.19",
+            "description": "Patient's noncompliance with other medical treatment",
+            "reason_excluded": "Social history context - 'patient's dog requires insulin', NLP confused pet care with patient treatment"
+        },
+        {
+            "code": "J45.909",
+            "description": "Unspecified asthma, uncomplicated",
+            "reason_excluded": "Negated finding - note states 'denies asthma', no current evidence"
         }
     ],
     "primary_drg": "291",
@@ -276,7 +301,13 @@ Return a JSON object with this structure:
         
         # Present ICD-10 codes extracted by NLP for review
         prompt_parts.append("**ICD-10 Codes Extracted by Prior NLP Routine:**\n")
-        prompt_parts.append("(Please review and select ONLY appropriate codes from this list. Do NOT add new codes.)\n\n")
+        prompt_parts.append("(Please review and select ONLY appropriate codes from this list. Do NOT add new codes.)\n")
+        prompt_parts.append("**CRITICAL**: Carefully review the clinical note above to verify each code is:\n")
+        prompt_parts.append("  - Actually about the PATIENT (not family members, pets, or social contacts)\n")
+        prompt_parts.append("  - Not a patient/provider NAME misinterpreted as a disease\n")
+        prompt_parts.append("  - Not from social history, family history, or past medical history sections\n")
+        prompt_parts.append("  - Not negated or ruled out in the clinical note\n")
+        prompt_parts.append("  - Supported by current clinical documentation\n\n")
         
         if diagnoses:
             for dx in sorted(diagnoses, key=lambda x: x['similarity'], reverse=True)[:20]:
@@ -299,10 +330,18 @@ Return a JSON object with this structure:
             prompt_parts.append("\n")
         
         prompt_parts.append("**Instructions:**\n")
-        prompt_parts.append("1. Review the ICD-10 codes listed above and select ONLY those appropriate for this encounter\n")
-        prompt_parts.append("2. Determine the most appropriate MS-DRG code(s) based on your selected ICD-10 codes\n")
-        prompt_parts.append("3. Assess complexity level and provide coding recommendations\n")
-        prompt_parts.append("4. Return your analysis in the specified JSON format\n")
+        prompt_parts.append("1. **CAREFULLY** review the clinical note context for each ICD-10 code above\n")
+        prompt_parts.append("2. **EXCLUDE** codes that are:\n")
+        prompt_parts.append("   - Patient/provider names misinterpreted as diseases\n")
+        prompt_parts.append("   - Social history mentions (pets, family members, occupational exposures without patient diagnosis)\n")
+        prompt_parts.append("   - Family history (conditions of relatives, not patient)\n")
+        prompt_parts.append("   - Negated or ruled out conditions\n")
+        prompt_parts.append("   - Simple word misinterpretations by NLP\n")
+        prompt_parts.append("3. **KEEP** only codes with clear clinical documentation supporting PATIENT diagnosis\n")
+        prompt_parts.append("4. Determine the most appropriate MS-DRG code(s) based on your selected ICD-10 codes\n")
+        prompt_parts.append("5. Assess VHA VERA complexity level and provide coding recommendations\n")
+        prompt_parts.append("6. Return your analysis in the specified JSON format\n")
+        prompt_parts.append("\n**Remember**: When uncertain about NLP extraction accuracy, EXCLUDE the code with clear reasoning.\n")
         
         return "".join(prompt_parts)
     
