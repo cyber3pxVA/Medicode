@@ -117,10 +117,12 @@ class RAGEnhancedLookup:
             # Use a lightweight medical model
             model_name = "sentence-transformers/all-MiniLM-L6-v2"  # Fast, good quality
             self.semantic_model = SentenceTransformer(model_name)
+            self.semantic_model_name = model_name
             logging.info(f"Semantic model loaded: {model_name}")
         except Exception as e:
             logging.warning(f"Failed to load semantic model: {e}")
             self.semantic_model = None
+            self.semantic_model_name = None
     
     def _ensure_database(self):
         """Build or load the enhanced database."""

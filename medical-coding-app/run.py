@@ -80,7 +80,15 @@ app = create_app(Config)
 @app.route('/health')
 def health_check():
     """Basic health check - app is running"""
-    return {'status': 'healthy', 'message': 'Flask app is running'}, 200
+    meta = {}
+    try:
+        from app.utils.rag_enhanced_lookup import get_rag_lookup
+        umls_path = os.environ.get('UMLS_PATH', 'umls_data')
+        lookup = get_rag_lookup(umls_path)
+        meta['semantic_model'] = getattr(lookup, 'semantic_model_name', None)
+    except Exception:
+        meta['semantic_model'] = None
+    return {'status': 'healthy', 'message': 'Flask app is running', 'semantic_model': meta['semantic_model']}, 200
 
 @app.route('/ready')
 def readiness_check():
@@ -106,6 +114,26 @@ def readiness_check():
             'status': 'starting',
             'message': 'UMLS initialization not started'
         }, 202
+
+@app.route('/features')
+def features():
+    import os
+    flags = {
+        'USE_RAG': os.environ.get('USE_RAG', '0') == '1',
+        'ENABLE_DRG': os.environ.get('ENABLE_DRG', '0') == '1',
+        'KEEP_NEGATED': os.environ.get('KEEP_NEGATED', '0') == '1',
+        'USE_MEDSPACY_CONTEXT': os.environ.get('USE_MEDSPACY_CONTEXT', '0') == '1'
+    }
+    model = None
+    try:
+        from app.utils.rag_enhanced_lookup import get_rag_lookup
+        umls_path = os.environ.get('UMLS_PATH', 'umls_data')
+        lookup = get_rag_lookup(umls_path)
+        model = getattr(lookup, 'semantic_model_name', None)
+    except Exception:
+        pass
+    flags['SEMANTIC_MODEL'] = model
+    return flags, 200
 
 if __name__ == "__main__":
     # Cloud Run provides PORT environment variable, default to 8080 for compatibility

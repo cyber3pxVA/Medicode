@@ -27,6 +27,8 @@ class NLPPipeline:
                 self.nlp = spacy.load("en_core_sci_sm")
                 self.umls_path = umls_path
                 self.quickumls = None  # Initialize lazily
+                # medSpaCy context placeholders
+                self._context_loaded = False
                 self.initialized = True
                 print("NLP Pipeline Initialized (QuickUMLS will be loaded on first use).")
             except Exception as e:
@@ -155,7 +157,7 @@ class NLPPipeline:
                 return self._fallback_concept_extraction(text)
 
             matches = self.quickumls.match(text, best_match=True, ignore_syntax=False)
-            
+
             extracted_codes = []
             for match in matches:
                 for concept in match:
@@ -165,7 +167,120 @@ class NLPPipeline:
                         "similarity": concept["similarity"],
                         "semtypes": list(concept["semtypes"]),
                     })
-            
+            # Negation / context detection (Hybrid: medSpaCy if enabled else fallback heuristics)
+            suppressed = []
+            import os
+            use_context = os.environ.get('USE_MEDSPACY_CONTEXT', '0') == '1'
+            doc = None
+            if use_context:
+                try:
+                    if not self._context_loaded:
+                        from medspacy.context import ConTextComponent
+                        from medspacy.context import context_item
+                        # Add component only once
+                        if 'medspacy_context' not in self.nlp.pipe_names:
+                            self.nlp.add_pipe('medspacy_context', config={})
+                        self._context_loaded = True
+                        print("medSpaCy ConTextComponent loaded.")
+                    doc = self.nlp(text)
+                    term_index_map = {}
+                    lower_text = text.lower()
+                    for c in extracted_codes:
+                        t = c['term'].lower()
+                        idx = lower_text.find(t)
+                        if idx != -1:
+                            term_index_map.setdefault(idx, []).append(c)
+                    # Walk through spans/entities with context attributes
+                    for ent in doc.ents:
+                        start = ent.start_char
+                        # Map to any QuickUMLS concept starting at this offset (approximate)
+                        for c in term_index_map.get(start, []):
+                            neg = getattr(ent._, 'is_negated', False) or getattr(ent._, 'negex', False)
+                            c['negated'] = bool(neg)
+                    # Fallback for concepts not aligned to spaCy entities: run heuristic
+                    from app.utils.negation import is_negated as _fallback_is_neg
+                    for c in extracted_codes:
+                        if 'negated' not in c:
+                            c['negated'] = _fallback_is_neg(c['term'], text)
+                    enhanced = []
+                    for c in extracted_codes:
+                        if c['negated']:
+                            suppressed.append(c)
+                            continue
+                        enhanced.append(c)
+                    if os.environ.get('KEEP_NEGATED','0') == '1':
+                        enhanced.extend(suppressed)
+                    else:
+                        if suppressed:
+                            print(f"DEBUG: (context) Suppressed {len(suppressed)} negated concepts")
+                    extracted_codes = enhanced
+                    self.last_suppressed_negated = suppressed
+                except Exception as e:
+                    print(f"WARN: medSpaCy context failed ({e}); falling back to heuristic negation.")
+                    use_context = False
+            if not use_context:
+                # Heuristic fallback (existing logic)
+                try:
+                    from app.utils.negation import is_negated
+                    doc = doc or self.nlp(text)
+                    sent_bounds = [(s.start_char, s.end_char) for s in doc.sents]
+                    def sentence_for(term):
+                        term_l = term.lower()
+                        idx = text.lower().find(term_l)
+                        if idx == -1:
+                            return None
+                        for (a,b) in sent_bounds:
+                            if a <= idx < b:
+                                return text[a:b]
+                        return None
+                    enhanced = []
+                    for c in extracted_codes:
+                        sent_txt = sentence_for(c['term']) or text
+                        neg = is_negated(c['term'], sent_txt)
+                        if neg:
+                            c['negated'] = True
+                            suppressed.append(c)
+                            continue
+                        c['negated'] = False
+                        enhanced.append(c)
+                    if os.environ.get('KEEP_NEGATED', '0') == '1':
+                        enhanced.extend(suppressed)
+                    else:
+                        if suppressed:
+                            print(f"DEBUG: Suppressed {len(suppressed)} negated concepts")
+                    extracted_codes = enhanced
+                    self.last_suppressed_negated = suppressed
+                except Exception:
+                    self.last_suppressed_negated = []
+
+            # Similarity normalization: if everything is 1.0 (degenerate), recompute a crude score
+            try:
+                sims = [c.get('similarity', 0) for c in extracted_codes]
+                if extracted_codes and all(s >= 0.999 for s in sims):
+                    base_tokens = set(text.lower().split())
+                    for c in extracted_codes:
+                        term_tokens = set(str(c.get('term','')).lower().split())
+                        overlap = len(base_tokens & term_tokens)
+                        denom = len(term_tokens) or 1
+                        ratio = overlap/denom
+                        # Blend with length factor to avoid extremes
+                        blended = 0.4*ratio + 0.6*(min(len(term_tokens),5)/5)
+                        c['similarity'] = round(min(blended, 0.98), 3)
+            except Exception:
+                pass
+
+            # Deduplicate by (cui, term) keeping max similarity
+            try:
+                seen = {}
+                for c in extracted_codes:
+                    key = (c.get('cui'), c.get('term').lower())
+                    prev = seen.get(key)
+                    if not prev or c.get('similarity',0) > prev.get('similarity',0):
+                        seen[key] = c
+                extracted_codes = list(seen.values())
+            except Exception:
+                pass
+
             return extracted_codes
         except Exception as e:
             print(f"Error processing text with QuickUMLS: {e}")

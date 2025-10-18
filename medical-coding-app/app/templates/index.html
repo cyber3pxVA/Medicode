@@ -3,14 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Medical Coding App</title>
+    <title>Medicode - UMLS & AI Medical Coding</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
     <div class="container" style="max-width: 1200px; margin: 0 auto;">
         <header>
-            <h1>Medical Coding Application</h1>
-            <p>Enter clinical text to extract UMLS concepts.</p>
+            <h1>Medicode - UMLS & AI (GPT-4o)</h1>
+            <p>Enter clinical text to extract codes with UMLS and AI assistance</p>
+            <p style="margin-top: 0.5em; font-size: 0.9em;">
+                <span style="color: #666;">This is an open source app available here:</span> 
+                <a href="https://github.com/frasod/Medicode" target="_blank" rel="noopener" style="color: #0366d6; text-decoration: none; font-weight: 500;">
+                    https://github.com/frasod/Medicode
+                </a>
+            </p>
         </header>
         <section style="margin-bottom:1em;">
             <strong>What is UMLS?</strong><br>
@@ -33,37 +39,131 @@
             <form method="POST" action="" id="extract-form">
                 {{ form.hidden_tag() }}
                 <div class="form-group">
-                    <label for="similarity_cutoff">Similarity Cutoff: <span id="sim-value">{{ request.form.get('similarity_cutoff', '1.0') }}</span></label>
-                    <input type="range" id="similarity_cutoff" name="similarity_cutoff" min="0" max="1" step="0.01" value="{{ request.form.get('similarity_cutoff', '1.0') }}" style="width:200px;">
-                </div>
-                <div class="form-group">
-                    {# Checked by default if no form submission yet #}
-                    <input type="checkbox" id="only_icd10" name="only_icd10" value="1" {% if request.method != 'POST' or request.form.get('only_icd10') %}checked{% endif %}>
-                    <label for="only_icd10">Only if ICD-10 mapped</label>
-                </div>
-                <div class="form-group">
-                    {{ form.clinical_note.label(class="form-label") }}<br>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em;">
+                        {{ form.clinical_note.label(class="form-label", style="margin: 0;") }}
+                        <div style="display: flex; gap: 0.5em;">
+                            <button type="button" id="history-btn" style="padding: 0.4em 1em; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                                History
+                            </button>
+                            <button type="button" id="clear-btn" style="padding: 0.4em 1em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                                Clear Text
+                            </button>
+                        </div>
+                    </div>
                     {{ form.clinical_note(class="form-control", rows=15) }}
                 </div>
-                <div class="form-group" style="margin:0.5em 0 1em;">
-                    <label>
-                        {{ form.inpatient(id='inpatient-toggle') }} {{ form.inpatient.label.text }}
-                    </label>
-                    <span style="font-size:0.75em; color:#666; margin-left:0.5em;">(Unchecked = outpatient / DRG mapping hidden)</span>
-                    <span id="inpatient-badge" class="inpatient-badge{% if not inpatient_selected %} hidden{% endif %}">INPATIENT MODE</span>
+                
+                <!-- History Panel (Hidden by default) -->
+                <div id="history-panel" style="display: none; margin-bottom: 1em; padding: 1em; background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 4px; max-height: 300px; overflow-y: auto;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+                        <h4 style="margin: 0;">Recent Clinical Notes</h4>
+                        <div style="display: flex; gap: 0.5em;">
+                            <button type="button" id="delete-all-history-btn" style="padding: 0.3em 0.8em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em;">
+                                Delete All
+                            </button>
+                            <button type="button" id="close-history-btn" style="padding: 0.3em 0.8em; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                    <div id="history-list">
+                        <div style="text-align: center; padding: 2em; color: #6c757d;">
+                            Loading history...
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group" style="display: flex; align-items: center; gap: 1em;">
-                    {{ form.submit(class="btn btn-primary") }}
-                    <span id="processing-indicator" style="display:none; text-align:center;">
+                
+                <!-- Step 1 Banner - Extract Codes -->
+                <div style="margin: 1.5em 0; padding: 1em; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 1em; justify-content: space-between;">
+                        <div>
+                            <strong style="font-size: 1.1em;">Step 1: Extract Codes with NLP</strong>
+                            <p style="margin: 0.5em 0 0 0; font-size: 0.9em; color: #555;">
+                                Extract medical concepts using QuickUMLS and map to ICD-10 codes
+                            </p>
+                        </div>
+                        {{ form.submit(class="btn btn-primary", style="padding: 0.75em 1.5em; font-size: 1em; white-space: nowrap;") }}
+                    </div>
+                    <div id="processing-indicator" style="display:none; margin-top: 1em; text-align:center;">
                         <span class="spinner" style="display:inline-block; width:24px; height:24px; border:3px solid #ccc; border-top:3px solid #333; border-radius:50%; animation: spin 1s linear infinite; vertical-align:middle;"></span>
                         <span style="margin-left: 0.5em;">Processing text, please wait…</span>
-                    </span>
+                    </div>
                 </div>
             </form>
             
             {% if codes %}
             <section class="results">
-                <h2>Extracted Concepts</h2>
+                <!-- AI Analysis Button (Second Step) -->
+                <div style="margin: 1.5em 0; padding: 1em; background: #e3f2fd; border: 2px solid #2196f3; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 1em; justify-content: space-between;">
+                        <div>
+                            <strong style="font-size: 1.1em;">Step 2: AI Analysis</strong>
+                            <p style="margin: 0.5em 0 0 0; font-size: 0.9em; color: #555;">
+                                Clean up ICD-10 codes and add VHA VERA complexity scoring with OpenAI GPT-4o
+                            </p>
+                        </div>
+                        <button id="ai-analyze-btn" type="button" class="btn btn-success" style="padding: 0.75em 1.5em; font-size: 1em; white-space: nowrap;">
+                            AI Analysis
+                        </button>
+                    </div>
+                    <div id="ai-processing-indicator" style="display:none; margin-top: 1em; text-align:center; color: #1976d2;">
+                        <span class="spinner" style="display:inline-block; width:24px; height:24px; border:3px solid #bbdefb; border-top:3px solid #1976d2; border-radius:50%; animation: spin 1s linear infinite; vertical-align:middle;"></span>
+                        <span style="margin-left: 0.5em;">AI is analyzing your clinical note...</span>
+                    </div>
+                    <div id="ai-error" style="display:none; margin-top: 1em; padding: 0.75em; background: #ffebee; border: 1px solid #ef5350; border-radius: 4px; color: #c62828;"></div>
+                </div>
+                
+                <!-- AI Analysis Results Panel -->
+                <div id="ai-analysis-panel" style="display:none; margin: 1.5em 0; padding: 1.5em; background: #f1f8e9; border: 2px solid #8bc34a; border-radius: 8px;">
+                    <h3 style="margin-top: 0; color: #558b2f;">AI Analysis Results</h3>
+                    <div id="ai-analysis-content"></div>
+                </div>
+                
+                <!-- Similarity Cutoff Adjuster -->
+                <div style="margin: 1.5em 0; padding: 1.2em; background: #e3f2fd; border: 1px solid #90caf9; border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 1em; margin-bottom: 0.8em;">
+                        <label for="similarity_cutoff" style="font-weight: bold; color: #1976d2; margin: 0;">
+                            Similarity Threshold:
+                        </label>
+                        <input type="range" id="similarity_cutoff" name="similarity_cutoff" min="0" max="1" step="0.01" value="{{ request.form.get('similarity_cutoff', '0.8') }}" style="flex: 1; max-width: 300px;">
+                        <span id="sim-value" style="font-weight: bold; color: #1976d2; min-width: 40px;">{{ request.form.get('similarity_cutoff', '0.8') }}</span>
+                    </div>
+                    <div style="font-size: 0.85em; color: #0d47a1; margin-bottom: 0.8em;">
+                        <em>Adjust the similarity threshold to filter codes by confidence level (0 = all codes, 1 = only exact matches)</em>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 1em; margin-bottom: 0.8em; padding-top: 0.8em; border-top: 1px solid #90caf9;">
+                        <label for="max_codes" style="font-weight: bold; color: #1976d2; margin: 0;">
+                            Max Codes to Display:
+                        </label>
+                        <input type="range" id="max_codes" name="max_codes" min="1" max="30" step="1" value="20" style="flex: 1; max-width: 300px;">
+                        <span id="max-codes-value" style="font-weight: bold; color: #1976d2; min-width: 40px;">20</span>
+                    </div>
+                    <div style="font-size: 0.85em; color: #0d47a1; margin-bottom: 0.8em;">
+                        <em>Limit the number of most relevant codes shown in the table (sorted by similarity)</em>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 0.5em; padding-top: 0.8em; border-top: 1px solid #90caf9;">
+                        <input type="checkbox" id="only_icd10" name="only_icd10" value="1" checked>
+                        <label for="only_icd10" style="margin: 0; font-weight: bold; color: #1976d2;">Only if ICD-10 mapped</label>
+                    </div>
+                </div>
+                
+                                {% if request.path == '/' and suppressed_negated %}
+                                <div style="margin:1em 0; padding:0.75em 1em; background:#fff3cd; border:1px solid #ffeeba; border-radius:4px;">
+                                        <strong>Suppressed (Negated) Concepts</strong> (<a href="#" id="toggle-suppressed">show</a>)
+                                        <div id="suppressed-list" style="display:none; margin-top:0.5em; font-size:0.85em;">
+                                                {% for sc in suppressed_negated %}
+                                                    <div style="margin:0.25em 0; color:#555;">
+                                                        {{ sc.term }}{% if sc.cui %} ({{ sc.cui }}){% endif %}
+                                                    </div>
+                                                {% endfor %}
+                                                {% if suppressed_negated|length == 0 %}
+                                                    <div style="color:#777; font-style:italic;">None</div>
+                                                {% endif %}
+                                        </div>
+                                </div>
+                                {% endif %}
                     {% set any_drg = [] %}
                     {% for code in codes %}
                         {% if code.drg_codes and code.drg_codes|length > 0 %}
@@ -73,16 +173,20 @@
                     {% if inpatient_selected %}
                         {% if any_drg|length == 0 %}
                             <div class="drg-status" style="margin:0.5em 0 1em; padding:0.6em 0.9em; background:#fff8e1; border:1px solid #e0d6aa; font-size:0.85em; color:#665c28;">
-                                DRG enrichment active but no DRG matches for extracted ICD-10 codes or mapping missing.
+                                DRG enrichment active but no DRG matches for extracted ICD-10 codes or mapping missing (or feature disabled at runtime).
                             </div>
                         {% endif %}
                     {% else %}
                         <div class="drg-status" style="display:none;"></div>
                     {% endif %}
+                    
+                    <h3 style="color: #1976d2; margin-top: 1.5em; margin-bottom: 0.5em; border-bottom: 2px solid #1976d2; padding-bottom: 0.3em;">
+                        NLP Raw Analysis
+                    </h3>
+                    
                     <div style="margin:0.5em 0 1em 0; display:flex; flex-wrap:wrap; gap:1.5em; align-items:center;">
                         <div style="display:flex; gap:0.75em; flex-wrap:wrap;">
                             <label><input type="checkbox" class="col-toggle" data-col="col-icd10" checked> ICD-10</label>
-                            <label class="complexity-col-toggle{% if not inpatient_selected %} hidden{% endif %}"><input type="checkbox" class="col-toggle" data-col="col-complexity" {% if inpatient_selected %}checked{% endif %}> Complexity</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-snomed" checked> SNOMED</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-similarity" checked> Similarity</label>
                             <label><input type="checkbox" class="col-toggle" data-col="col-semtypes" checked> Semantic Types</label>
@@ -99,7 +203,6 @@
                     <thead>
                         <tr>
                                 <th class="col-icd10">ICD-10</th>
-                                <th class="col-complexity{% if not inpatient_selected %} hidden{% endif %}">Complexity</th>
                                 <th class="col-snomed" style="width:320px;">SNOMED Code(s)</th>
                                 <th class="col-similarity">Similarity</th>
                                 <th class="col-semtypes">Semantic Types</th>
@@ -109,62 +212,95 @@
                     </thead>
                     <tbody>
                         {% if codes and codes|length > 0 %}
+                        {# Group codes by ICD-10 code #}
+                        {% set icd10_groups = {} %}
                         {% for code in codes %}
+                            {% if code.icd10_codes and code.icd10_codes|length > 0 %}
+                                {% set icd_code = code.icd10_codes[0].code %}
+                                {% if icd_code not in icd10_groups %}
+                                    {% set _ = icd10_groups.update({icd_code: []}) %}
+                                {% endif %}
+                                {% set _ = icd10_groups[icd_code].append(code) %}
+                            {% endif %}
+                        {% endfor %}
+                        
+                        {# Display one row per ICD-10 code #}
+                        {% for icd_code, grouped_codes in icd10_groups.items() %}
+                        {% set first_code = grouped_codes[0] %}
+                        {% set icd_info = first_code.icd10_codes[0] %}
                         <tr>
-                            <!-- ICD-10 Code(s) -->
-                                <td class="col-icd10">
-                                {% for icd in code.icd10_codes %}
-                                    <div>
-                                        <strong>{{ icd.code }}</strong>: {{ icd.desc }}
-                                    </div>
-                                {% endfor %}
+                            <!-- ICD-10 Code (one per row) -->
+                            <td class="col-icd10">
+                                <div>
+                                    <strong>{{ icd_info.code }}</strong>: {{ icd_info.desc }}
+                                </div>
                             </td>
-                            <!-- Complexity -->
-                                <td class="col-complexity{% if not inpatient_selected %} hidden{% endif %}">
-                                {% if code.drg_codes %}
-                                    {% for drg in code.drg_codes %}
-                                        {% if 'MCC' in drg.description %}
-                                            <span style="color:#d32f2f; font-weight:bold;">High</span>
-                                        {% elif 'CC' in drg.description and 'MCC' not in drg.description %}
-                                            <span style="color:#f57c00; font-weight:bold;">Medium</span>
-                                        {% elif 'W/O' in drg.description and ('CC' in drg.description or 'MCC' in drg.description) %}
-                                            <span style="color:#388e3c; font-weight:bold;">Low</span>
+                            <!-- SNOMED Code(s) - collect from all grouped codes -->
+                            <td class="col-snomed" style="font-size: 0.92em;">
+                                {% set all_snomed = [] %}
+                                {% for gc in grouped_codes %}
+                                    {% for sc in gc.snomed_codes %}
+                                        {% if sc not in all_snomed %}
+                                            {% set _ = all_snomed.append(sc) %}
                                         {% endif %}
-                                        {% if not loop.last %}<br>{% endif %}
                                     {% endfor %}
+                                {% endfor %}
+                                {% set total = all_snomed|length %}
+                                {% if total > 0 %}
+                                    {% set first = all_snomed[0] %}
+                                    <div style="font-size:0.85em; color:#444;">{{ first.code }}: <span style="font-size:0.85em; color:#666;">{{ first.desc }}</span></div>
+                                    {% if total > 1 %}
+                                        <div class="snomed-extra" style="display:none; margin-top:0.4em;">
+                                            {% for sc in all_snomed[1:] %}
+                                                <div style="font-size:0.80em; color:#555;">{{ sc.code }}: <span style="font-size:0.80em; color:#777;">{{ sc.desc }}</span></div>
+                                            {% endfor %}
+                                        </div>
+                                        <button type="button" class="toggle-snomed" style="margin-top:0.3em; font-size:0.70em; background:none; border:1px solid #ccc; padding:2px 6px; cursor:pointer;">More ▾</button>
+                                    {% endif %}
                                 {% endif %}
                             </td>
-                            <!-- SNOMED Code(s) -->
-                                <td class="col-snomed" style="font-size: 0.92em;">
-                                    {% set total = code.snomed_codes|length %}
-                                    {% if total > 0 %}
-                                        {% set first = code.snomed_codes[0] %}
-                                        <div style="font-size:0.85em; color:#444;">{{ first.code }}: <span style="font-size:0.85em; color:#666;">{{ first.desc }}</span></div>
-                                        {% if total > 1 %}
-                                            <div class="snomed-extra" style="display:none; margin-top:0.4em;">
-                                                {% for sc in code.snomed_codes[1:] %}
-                                                    <div style="font-size:0.80em; color:#555;">{{ sc.code }}: <span style="font-size:0.80em; color:#777;">{{ sc.desc }}</span></div>
-                                                {% endfor %}
-                                            </div>
-                                            <button type="button" class="toggle-snomed" style="margin-top:0.3em; font-size:0.70em; background:none; border:1px solid #ccc; padding:2px 6px; cursor:pointer;">More ▾</button>
+                            <!-- Similarity - show highest -->
+                            <td class="col-similarity">
+                                {% set max_sim = grouped_codes|map(attribute='similarity')|max %}
+                                {{ "%.2f"|format(max_sim) }}
+                            </td>
+                            <!-- Semantic Types - collect from all grouped codes -->
+                            <td class="col-semtypes" style="font-size:0.85em; color:#444;">
+                                {% set all_semtypes = [] %}
+                                {% for gc in grouped_codes %}
+                                    {% for st in gc.semtypes %}
+                                        {% if st not in all_semtypes %}
+                                            {% set _ = all_semtypes.append(st) %}
                                         {% endif %}
-                                    {% endif %}
-                                </td>
-                            <!-- Similarity -->
-                                <td class="col-similarity">{{ "%.2f"|format(code.similarity) }}</td>
-                            <!-- Semantic Types -->
-                                <td class="col-semtypes" style="font-size:0.85em; color:#444;">
-                                {% for st in code.semtypes %}
+                                    {% endfor %}
+                                {% endfor %}
+                                {% for st in all_semtypes %}
                                     <div style="font-size:0.85em; color:#444;">
                                         <span>{{ st }}</span>
                                         <span style="font-size:0.85em; color:#888;"> — {{ semtype_map.get(st, 'Unknown') }}</span>
                                     </div>
                                 {% endfor %}
                             </td>
-                            <!-- CUI -->
-                                <td class="col-cui" style="font-size:0.85em; color:#444;">{{ code.cui }}</td>
-                            <!-- Term -->
-                                <td class="col-term">{{ code.term }}</td>
+                            <!-- CUI - show all unique CUIs -->
+                            <td class="col-cui" style="font-size:0.85em; color:#444;">
+                                {% for gc in grouped_codes %}
+                                    <div>{{ gc.cui }}</div>
+                                {% endfor %}
+                            </td>
+                            <!-- Terms - show all terms collapsed -->
+                            <td class="col-term">
+                                {% if grouped_codes|length == 1 %}
+                                    {{ grouped_codes[0].term }}
+                                {% else %}
+                                    <div>{{ grouped_codes[0].term }}</div>
+                                    <div class="terms-extra" style="display:none; margin-top:0.4em;">
+                                        {% for gc in grouped_codes[1:] %}
+                                            <div style="font-size:0.90em; color:#555; margin-top:0.2em;">{{ gc.term }}</div>
+                                        {% endfor %}
+                                    </div>
+                                    <button type="button" class="toggle-terms" style="margin-top:0.3em; font-size:0.70em; background:none; border:1px solid #ccc; padding:2px 6px; cursor:pointer;">+{{ grouped_codes|length - 1 }} more ▾</button>
+                                {% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                         {% else %}
@@ -172,65 +308,24 @@
                         {% endif %}
                     </tbody>
                 </table>
-
-                <!-- Inpatient DRG Section -->
-                <div id="inpatient-drg-wrapper" class="inpatient-drg-wrapper{% if not inpatient_selected %} hidden{% endif %}">
-                    <h3 style="margin: 0 0 1em 0; color: #495057;">Inpatient DRG Classifications</h3>
-                    <div style="display: flex; gap: 1em; flex-wrap: wrap; align-items: center; margin-bottom: 1em;">
-                        <label>
-                            <input type="checkbox" id="show-inpatient-drg" checked>
-                            <strong>Show Inpatient DRG Codes</strong>
-                        </label>
-                        <span style="font-size: 0.85em; color: #6c757d;">
-                            (DRG codes are typically used for inpatient hospital billing and case-mix classification)
-                        </span>
-                    </div>
-                    
-                    <div id="inpatient-drg-content">
-                        {% set has_drg = false %}
-                        {% for code in codes %}
-                            {% if code.drg_codes %}
-                                {% set has_drg = true %}
-                                <div style="margin-bottom: 1.5em; padding: 1em; background: white; border-radius: 4px; border-left: 4px solid #007bff;">
-                                    <div style="font-weight: bold; margin-bottom: 0.5em; color: #495057;">
-                                        {{ code.term }} ({{ code.cui }})
-                                    </div>
-                                    {% for drg in code.drg_codes %}
-                                        <div style="margin: 0.5em 0; padding: 0.5em; background: #e9ecef; border-radius: 3px;">
-                                            <strong style="color: #007bff;">DRG {{ drg.drg }}</strong>: 
-                                            <span style="color: #495057;">{{ drg.description }}</span>
-                                            {% if 'MCC' in drg.description %}
-                                                <span style="color: #d32f2f; font-weight: bold; margin-left: 8px; padding: 2px 6px; background: #ffebee; border-radius: 3px; font-size: 0.8em;">HIGH COMPLEXITY</span>
-                                            {% elif 'CC' in drg.description and 'MCC' not in drg.description %}
-                                                <span style="color: #f57c00; font-weight: bold; margin-left: 8px; padding: 2px 6px; background: #fff3e0; border-radius: 3px; font-size: 0.8em;">MEDIUM COMPLEXITY</span>
-                                            {% elif 'W/O' in drg.description and ('CC' in drg.description or 'MCC' in drg.description) %}
-                                                <span style="color: #388e3c; font-weight: bold; margin-left: 8px; padding: 2px 6px; background: #e8f5e8; border-radius: 3px; font-size: 0.8em;">LOW COMPLEXITY</span>
-                                            {% endif %}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        {% endfor %}
-                        
-                        {% if not has_drg %}
-                            <div style="text-align: center; color: #6c757d; font-style: italic; padding: 2em;">
-                                No DRG classifications available for the extracted concepts.
-                                <br><small>DRG mappings require a CSV file with ICD-10 to DRG mappings.</small>
-                            </div>
-                        {% endif %}
-                    </div>
+                
+                <!-- Excluded Codes Section (populated by AI analysis) -->
+                <div id="excluded-codes-section" style="display: none; margin-top: 2em;">
+                    <h4 style="color: #d32f2f; margin-bottom: 0.8em; border-bottom: 2px solid #d32f2f; padding-bottom: 0.3em;">
+                        ⚠️ Codes Excluded by AI Analysis
+                    </h4>
+                    <div id="excluded-codes-list"></div>
                 </div>
             </section>
             {% endif %}
         </main>
         
         <footer>
-            <p>&copy; 2025 Medical Coding App</p>
+            <p>&copy; 2025 Medicode - UMLS & AI Medical Coding</p>
         </footer>
 
         <style>
         .hidden { display: none; }
-        .inpatient-badge { margin-left:0.75em; background:#004085; color:#fff; padding:2px 8px; font-size:0.7em; border-radius:12px; }
         .inpatient-drg-wrapper { margin-top: 2em; padding: 1em; background: #f8f9fa; border-radius: 6px; }
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -240,6 +335,160 @@
         <script>
         // Similarity slider value display
         document.addEventListener('DOMContentLoaded', () => {
+            // Clear button handler - clears everything and reloads page
+            const clearBtn = document.getElementById('clear-btn');
+            const clinicalTextarea = document.querySelector('textarea[name="clinical_note"]');
+            if (clearBtn && clinicalTextarea) {
+                clearBtn.addEventListener('click', () => {
+                    if (confirm('Are you sure you want to clear everything and start fresh?')) {
+                        // Clear textarea
+                        clinicalTextarea.value = '';
+                        // Reload page to reset all results
+                        window.location.href = '/';
+                    }
+                });
+            }
+            
+            // History button handler
+            const historyBtn = document.getElementById('history-btn');
+            const historyPanel = document.getElementById('history-panel');
+            const historyList = document.getElementById('history-list');
+            const closeHistoryBtn = document.getElementById('close-history-btn');
+            const deleteAllHistoryBtn = document.getElementById('delete-all-history-btn');
+            
+            // Function to load and display history
+            async function loadHistory() {
+                historyList.innerHTML = '<div style="text-align: center; padding: 2em; color: #6c757d;">Loading history...</div>';
+                
+                try {
+                    const response = await fetch('/history?limit=10');
+                    const data = await response.json();
+                    
+                    if (data.success && data.history.length > 0) {
+                        let html = '';
+                        data.history.forEach(entry => {
+                            const date = new Date(entry.created_at).toLocaleString();
+                            html += `
+                                <div class="history-item" data-id="${entry.id}" style="padding: 0.8em; margin-bottom: 0.5em; background: white; border: 1px solid #dee2e6; border-radius: 4px; transition: background 0.2s; display: flex; justify-content: space-between; align-items: center;">
+                                    <div style="flex: 1; cursor: pointer;" class="history-item-content">
+                                        <div style="font-weight: bold; color: #495057; margin-bottom: 0.3em;">${date}</div>
+                                        <div style="font-size: 0.9em; color: #6c757d; margin-bottom: 0.3em;">${entry.preview}...</div>
+                                        <div style="font-size: 0.8em; color: #17a2b8;">
+                                            ${entry.codes_count} codes extracted
+                                        </div>
+                                    </div>
+                                    <button class="delete-history-btn" data-id="${entry.id}" style="padding: 0.4em 0.8em; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.85em; margin-left: 1em;">
+                                        Delete
+                                    </button>
+                                </div>
+                            `;
+                        });
+                        historyList.innerHTML = html;
+                        
+                        // Add click handlers for history items (load text)
+                        document.querySelectorAll('.history-item-content').forEach(content => {
+                            content.addEventListener('click', async function() {
+                                const historyItem = this.closest('.history-item');
+                                const historyId = historyItem.getAttribute('data-id');
+                                try {
+                                    const response = await fetch(`/history/${historyId}`);
+                                    const data = await response.json();
+                                    
+                                    if (data.success) {
+                                        clinicalTextarea.value = data.clinical_text;
+                                        historyPanel.style.display = 'none';
+                                    }
+                                } catch (error) {
+                                    console.error('Error loading history item:', error);
+                                    alert('Failed to load history item');
+                                }
+                            });
+                            
+                            // Hover effect
+                            content.addEventListener('mouseenter', function() {
+                                this.closest('.history-item').style.background = '#e9ecef';
+                            });
+                            content.addEventListener('mouseleave', function() {
+                                this.closest('.history-item').style.background = 'white';
+                            });
+                        });
+                        
+                        // Add click handlers for delete buttons
+                        document.querySelectorAll('.delete-history-btn').forEach(btn => {
+                            btn.addEventListener('click', async function(e) {
+                                e.stopPropagation(); // Prevent triggering the load action
+                                const historyId = this.getAttribute('data-id');
+                                
+                                if (confirm('Are you sure you want to delete this history entry?')) {
+                                    try {
+                                        const response = await fetch(`/history/${historyId}`, {
+                                            method: 'DELETE'
+                                        });
+                                        const data = await response.json();
+                                        
+                                        if (data.success) {
+                                            // Reload history to show updated list
+                                            await loadHistory();
+                                        } else {
+                                            alert('Failed to delete history entry');
+                                        }
+                                    } catch (error) {
+                                        console.error('Error deleting history item:', error);
+                                        alert('Failed to delete history entry');
+                                    }
+                                }
+                            });
+                        });
+                    } else {
+                        historyList.innerHTML = '<div style="text-align: center; padding: 2em; color: #6c757d; font-style: italic;">No history found</div>';
+                    }
+                } catch (error) {
+                    console.error('Error loading history:', error);
+                    historyList.innerHTML = '<div style="text-align: center; padding: 2em; color: #dc3545;">Failed to load history</div>';
+                }
+            }
+            
+            if (historyBtn && historyPanel) {
+                historyBtn.addEventListener('click', async () => {
+                    // Toggle panel visibility
+                    if (historyPanel.style.display === 'none') {
+                        historyPanel.style.display = 'block';
+                        await loadHistory();
+                    } else {
+                        historyPanel.style.display = 'none';
+                    }
+                });
+                
+                if (closeHistoryBtn) {
+                    closeHistoryBtn.addEventListener('click', () => {
+                        historyPanel.style.display = 'none';
+                    });
+                }
+                
+                if (deleteAllHistoryBtn) {
+                    deleteAllHistoryBtn.addEventListener('click', async () => {
+                        if (confirm('Are you sure you want to delete ALL history entries? This cannot be undone.')) {
+                            try {
+                                const response = await fetch('/history/all', {
+                                    method: 'DELETE'
+                                });
+                                const data = await response.json();
+                                
+                                if (data.success) {
+                                    // Reload history to show empty state
+                                    await loadHistory();
+                                } else {
+                                    alert('Failed to delete all history entries');
+                                }
+                            } catch (error) {
+                                console.error('Error deleting all history:', error);
+                                alert('Failed to delete all history entries');
+                            }
+                        }
+                    });
+                }
+            }
+            
             const slider = document.getElementById('similarity_cutoff');
             const simValue = document.getElementById('sim-value');
             if (slider && simValue) {
@@ -247,6 +496,18 @@
                 simValue.textContent = slider.value;
                 slider.addEventListener('input', () => {
                     simValue.textContent = slider.value;
+                });
+            }
+
+            // Max codes slider value display
+            const maxCodesSlider = document.getElementById('max_codes');
+            const maxCodesValue = document.getElementById('max-codes-value');
+            if (maxCodesSlider && maxCodesValue) {
+                // Set initial value
+                maxCodesValue.textContent = maxCodesSlider.value;
+                maxCodesSlider.addEventListener('input', () => {
+                    maxCodesValue.textContent = maxCodesSlider.value;
+                    filterTableByMaxCodes(parseInt(maxCodesSlider.value));
                 });
             }
 
@@ -296,6 +557,9 @@
         <script>
         // Column toggle logic
         document.addEventListener('DOMContentLoaded', () => {
+            // Load codes data for export and AI analysis
+            window.__codes = JSON.parse(document.getElementById('codes-json').textContent);
+            
             const toggles = document.querySelectorAll('.col-toggle');
             toggles.forEach(cb => {
                 cb.addEventListener('change', () => {
@@ -306,36 +570,6 @@
                     });
                 });
             });
-
-            // DRG Inpatient Toggle
-            const drgToggle = document.getElementById('show-inpatient-drg');
-            const drgContent = document.getElementById('inpatient-drg-content');
-            // Inpatient checkbox dynamic behavior & persistence
-            const inpatientToggle = document.getElementById('inpatient-toggle');
-            const inpatientBadge = document.getElementById('inpatient-badge');
-            const complexityHeader = document.querySelector('th.col-complexity');
-            const complexityToggleWrapper = document.querySelector('.complexity-col-toggle');
-            const inpatientDrgWrapper = document.getElementById('inpatient-drg-wrapper');
-            if (inpatientToggle) {
-                // Restore preference
-                const saved = localStorage.getItem('inpatient_pref');
-                if (saved !== null && form2 && form2.method === 'POST' && !inpatientToggle.checked) {
-                    inpatientToggle.checked = saved === '1';
-                }
-                inpatientToggle.addEventListener('change', () => {
-                    const on = inpatientToggle.checked;
-                    localStorage.setItem('inpatient_pref', on ? '1' : '0');
-                    if (inpatientBadge) inpatientBadge.classList.toggle('hidden', !on);
-                    if (complexityHeader) complexityHeader.classList.toggle('hidden', !on);
-                    if (complexityToggleWrapper) complexityToggleWrapper.classList.toggle('hidden', !on);
-                    if (inpatientDrgWrapper) inpatientDrgWrapper.classList.toggle('hidden', !on);
-                });
-            }
-            if (drgToggle && drgContent) {
-                drgToggle.addEventListener('change', () => {
-                    drgContent.style.display = drgToggle.checked ? 'block' : 'none';
-                });
-            }
 
             // Per-row SNOMED toggle
             document.querySelectorAll('.toggle-snomed').forEach(btn => {
@@ -353,7 +587,35 @@
                 });
             });
 
+            // Per-row Terms toggle
+            document.querySelectorAll('.toggle-terms').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const extra = btn.parentElement.querySelector('.terms-extra');
+                    if (!extra) return;
+                    const expanded = extra.style.display !== 'none';
+                    if (expanded) {
+                        extra.style.display = 'none';
+                        const count = extra.querySelectorAll('div').length;
+                        btn.textContent = `+${count} more ▾`;
+                    } else {
+                        extra.style.display = '';
+                        btn.textContent = 'Less ▴';
+                    }
+                });
+            });
+
             // Global expand/collapse all SNOMED
+            // Suppressed negated toggle
+            const toggleSupp = document.getElementById('toggle-suppressed');
+            const suppList = document.getElementById('suppressed-list');
+            if (toggleSupp && suppList) {
+                toggleSupp.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const vis = suppList.style.display !== 'none';
+                    suppList.style.display = vis ? 'none' : 'block';
+                    toggleSupp.textContent = vis ? 'show' : 'hide';
+                });
+            }
             const globalBtn = document.getElementById('toggle-all-snomed');
             if (globalBtn) {
                 globalBtn.addEventListener('click', () => {
@@ -365,6 +627,181 @@
                         b.textContent = anyHidden ? 'Less ▴' : 'More ▾';
                     });
                     globalBtn.textContent = anyHidden ? 'Collapse All SNOMED' : 'Expand All SNOMED';
+                });
+            }
+
+            // Apply initial max codes filter
+            const maxCodesSliderInit = document.getElementById('max_codes');
+            if (maxCodesSliderInit) {
+                filterTableByMaxCodes(parseInt(maxCodesSliderInit.value));
+            }
+
+            // Function to filter table rows by max number of codes (sorted by similarity)
+            function filterTableByMaxCodes(maxCodes) {
+                const tbody = document.querySelector('table tbody');
+                if (!tbody) return;
+                
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                if (rows.length === 0) return;
+                
+                // Sort rows by similarity score (highest first)
+                rows.sort((a, b) => {
+                    const simA = parseFloat(a.querySelector('.col-similarity')?.textContent || '0');
+                    const simB = parseFloat(b.querySelector('.col-similarity')?.textContent || '0');
+                    return simB - simA;
+                });
+                
+                // Show only top N rows, hide the rest
+                rows.forEach((row, index) => {
+                    if (index < maxCodes) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            }
+
+            // Function to update table with new codes after AI filtering
+            function updateTableWithCodes(codes) {
+                const tbody = document.querySelector('table tbody');
+                if (!tbody) return;
+                
+                // Clear existing rows
+                tbody.innerHTML = '';
+                
+                // If no codes, show empty message
+                if (!codes || codes.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No codes found for this text.</td></tr>';
+                    return;
+                }
+                
+                // Group codes by ICD-10
+                const icd10Groups = {};
+                codes.forEach(code => {
+                    if (code.icd10_codes && code.icd10_codes.length > 0) {
+                        const icdCode = code.icd10_codes[0].code;
+                        if (!icd10Groups[icdCode]) {
+                            icd10Groups[icdCode] = [];
+                        }
+                        icd10Groups[icdCode].push(code);
+                    }
+                });
+                
+                // Rebuild table rows - one per ICD-10 code
+                Object.entries(icd10Groups).forEach(([icdCode, groupedCodes]) => {
+                    const row = document.createElement('tr');
+                    const firstCode = groupedCodes[0];
+                    const icdInfo = firstCode.icd10_codes[0];
+                    
+                    // ICD-10 Code (one per row)
+                    let icd10Cell = `<td class="col-icd10"><div><strong>${icdInfo.code}</strong>: ${icdInfo.desc}</div></td>`;
+                    
+                    // SNOMED - collect unique from all grouped codes
+                    const allSnomed = [];
+                    const snomedSeen = new Set();
+                    groupedCodes.forEach(gc => {
+                        if (gc.snomed_codes) {
+                            gc.snomed_codes.forEach(sc => {
+                                if (!snomedSeen.has(sc.code)) {
+                                    snomedSeen.add(sc.code);
+                                    allSnomed.push(sc);
+                                }
+                            });
+                        }
+                    });
+                    
+                    let snomedCell = '<td class="col-snomed" style="font-size: 0.92em;">';
+                    if (allSnomed.length > 0) {
+                        const first = allSnomed[0];
+                        snomedCell += `<div style="font-size:0.85em; color:#444;">${first.code}: <span style="font-size:0.85em; color:#666;">${first.desc}</span></div>`;
+                        if (allSnomed.length > 1) {
+                            snomedCell += '<div class="snomed-extra" style="display:none; margin-top:0.4em;">';
+                            allSnomed.slice(1).forEach(sc => {
+                                snomedCell += `<div style="font-size:0.80em; color:#555;">${sc.code}: <span style="font-size:0.80em; color:#777;">${sc.desc}</span></div>`;
+                            });
+                            snomedCell += '</div>';
+                            snomedCell += '<button type="button" class="toggle-snomed" style="margin-top:0.3em; font-size:0.70em; background:none; border:1px solid #ccc; padding:2px 6px; cursor:pointer;">More ▾</button>';
+                        }
+                    }
+                    snomedCell += '</td>';
+                    
+                    // Similarity - show highest
+                    const maxSim = Math.max(...groupedCodes.map(gc => gc.similarity || 0));
+                    const similarityCell = `<td class="col-similarity">${maxSim.toFixed(2)}</td>`;
+                    
+                    // Semantic Types - collect unique
+                    const allSemtypes = [];
+                    const semtypeSeen = new Set();
+                    groupedCodes.forEach(gc => {
+                        if (gc.semtypes) {
+                            gc.semtypes.forEach(st => {
+                                if (!semtypeSeen.has(st)) {
+                                    semtypeSeen.add(st);
+                                    allSemtypes.push(st);
+                                }
+                            });
+                        }
+                    });
+                    
+                    let semtypesCell = '<td class="col-semtypes" style="font-size:0.85em; color:#444;">';
+                    allSemtypes.forEach(st => {
+                        semtypesCell += `<div style="font-size:0.85em; color:#444;"><span>${st}</span></div>`;
+                    });
+                    semtypesCell += '</td>';
+                    
+                    // CUI - show all
+                    let cuiCell = '<td class="col-cui" style="font-size:0.85em; color:#444;">';
+                    groupedCodes.forEach(gc => {
+                        cuiCell += `<div>${gc.cui}</div>`;
+                    });
+                    cuiCell += '</td>';
+                    
+                    // Terms - show all with collapse
+                    let termCell = '<td class="col-term">';
+                    if (groupedCodes.length === 1) {
+                        termCell += groupedCodes[0].term;
+                    } else {
+                        termCell += `<div>${groupedCodes[0].term}</div>`;
+                        termCell += '<div class="terms-extra" style="display:none; margin-top:0.4em;">';
+                        groupedCodes.slice(1).forEach(gc => {
+                            termCell += `<div style="font-size:0.90em; color:#555; margin-top:0.2em;">${gc.term}</div>`;
+                        });
+                        termCell += '</div>';
+                        termCell += `<button type="button" class="toggle-terms" style="margin-top:0.3em; font-size:0.70em; background:none; border:1px solid #ccc; padding:2px 6px; cursor:pointer;">+${groupedCodes.length - 1} more ▾</button>`;
+                    }
+                    termCell += '</td>';
+                    
+                    row.innerHTML = icd10Cell + snomedCell + similarityCell + semtypesCell + cuiCell + termCell;
+                    tbody.appendChild(row);
+                });
+                
+                // Re-attach toggle event listeners
+                document.querySelectorAll('.toggle-snomed').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const extraDiv = this.previousElementSibling;
+                        if (extraDiv && extraDiv.classList.contains('snomed-extra')) {
+                            const isHidden = extraDiv.style.display === 'none';
+                            extraDiv.style.display = isHidden ? 'block' : 'none';
+                            this.textContent = isHidden ? 'Less ▴' : 'More ▾';
+                        }
+                    });
+                });
+                
+                document.querySelectorAll('.toggle-terms').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const extraDiv = this.previousElementSibling;
+                        if (extraDiv && extraDiv.classList.contains('terms-extra')) {
+                            const isHidden = extraDiv.style.display === 'none';
+                            if (isHidden) {
+                                extraDiv.style.display = 'block';
+                                this.textContent = 'Less ▴';
+                            } else {
+                                extraDiv.style.display = 'none';
+                                const count = extraDiv.querySelectorAll('div').length;
+                                this.textContent = `+${count} more ▾`;
+                            }
+                        }
+                    });
                 });
             }
 
@@ -428,9 +865,151 @@
                 });
                 download('codes.csv', lines.join('\n'), 'text/csv');
             });
+            
+            // Function to update DRG content with AI analysis results
+            // AI Analysis Button Handler (Second Step)
+            const aiAnalyzeBtn = document.getElementById('ai-analyze-btn');
+            const aiProcessingIndicator = document.getElementById('ai-processing-indicator');
+            const aiError = document.getElementById('ai-error');
+            const aiAnalysisPanel = document.getElementById('ai-analysis-panel');
+            const aiAnalysisContent = document.getElementById('ai-analysis-content');
+            
+            if (aiAnalyzeBtn) {
+                aiAnalyzeBtn.addEventListener('click', async () => {
+                    // Get clinical text and codes
+                    const clinicalText = document.querySelector('[name="clinical_note"]').value;
+                    const codes = window.__codes || [];
+                    
+                    if (!clinicalText || codes.length === 0) {
+                        aiError.textContent = 'Please extract codes first using NLP analysis.';
+                        aiError.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Show processing indicator
+                    aiAnalyzeBtn.disabled = true;
+                    aiProcessingIndicator.style.display = 'block';
+                    aiError.style.display = 'none';
+                    aiAnalysisPanel.style.display = 'none';
+                    
+                    try {
+                        const response = await fetch('/ai-analyze', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                clinical_text: clinicalText,
+                                codes: codes
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(data.message || 'AI analysis failed');
+                        }
+                        
+                        // Display AI analysis results
+                        if (data.success && data.ai_analysis) {
+                            const analysis = data.ai_analysis;
+                            
+                            let html = '<div style="line-height: 1.8;">';
+                            
+                            // VHA VERA Complexity (Primary focus)
+                            let complexityColor = '#388e3c';
+                            const complexityStr = analysis.complexity || '';
+                            
+                            // Detect VHA Level from complexity string
+                            if (complexityStr.includes('Level 5') || complexityStr.includes('Level 4') || complexityStr.includes('Extremely High') || complexityStr.includes('Very High')) {
+                                complexityColor = '#d32f2f';
+                            } else if (complexityStr.includes('Level 3') || complexityStr.includes('High')) {
+                                complexityColor = '#f57c00';
+                            }
+                            
+                            html += `<div style="margin-bottom: 1.5em; padding: 1em; background: #f5f5f5; border-left: 4px solid ${complexityColor}; border-radius: 4px;">
+                                <strong style="font-size: 1.2em;">VHA VERA Complexity Assessment</strong>
+                                <div style="margin-top: 0.5em; font-size: 1.3em; color: ${complexityColor}; font-weight: bold;">
+                                    ${analysis.complexity}
+                                </div>
+                            </div>`;
+                            
+                            // Confidence
+                            html += `<div style="margin-bottom: 1em;">
+                                <strong>Confidence Score:</strong> ${(analysis.confidence * 100).toFixed(0)}%
+                            </div>`;
+                            
+                            // Clinical Reasoning (includes ICD-10 review, VHA rationale, and recommendations)
+                            if (analysis.reasoning) {
+                                html += `<div style="margin-bottom: 1em;">
+                                    <strong>AI Analysis & Recommendations:</strong>
+                                    <div style="padding: 1em; background: white; border: 1px solid #ddd; border-radius: 4px; margin-top: 0.5em; line-height: 1.6; max-height: 500px; overflow-y: auto;">${analysis.reasoning}</div>
+                                </div>`;
+                            }
+                            
+                            html += '</div>';
+                            
+                            aiAnalysisContent.innerHTML = html;
+                            aiAnalysisPanel.style.display = 'block';
+                            
+                            // Update codes in the table (filtered - excluded codes removed)
+                            if (data.codes) {
+                                const newCodes = data.codes;
+                                window.__codes = newCodes;
+                                
+                                // Update the table to show codes
+                                updateTableWithCodes(newCodes);
+                                
+                                // Apply max codes filter
+                                const maxCodesSliderAI = document.getElementById('max_codes');
+                                if (maxCodesSliderAI) {
+                                    filterTableByMaxCodes(parseInt(maxCodesSliderAI.value));
+                                }
+                            }
+                            
+                            // Display excluded codes below the table
+                            const excludedCodesSection = document.getElementById('excluded-codes-section');
+                            const excludedCodesList = document.getElementById('excluded-codes-list');
+                            
+                            if (data.excluded_codes_info && data.excluded_codes_info.length > 0) {
+                                let excludedHtml = '<div style="display: grid; gap: 1em;">';
+                                data.excluded_codes_info.forEach(excluded => {
+                                    excludedHtml += `
+                                        <div style="padding: 1em; background: #ffebee; border: 1px solid #ef9a9a; border-radius: 4px; border-left: 4px solid #d32f2f;">
+                                            <div style="font-weight: bold; color: #c62828; font-size: 1.1em;">
+                                                ${excluded.code}
+                                            </div>
+                                            <div style="color: #666; margin-top: 0.3em;">
+                                                ${excluded.description}
+                                            </div>
+                                            <div style="margin-top: 0.5em; padding: 0.5em; background: white; border-radius: 3px;">
+                                                <strong style="color: #d32f2f;">Reason excluded:</strong><br>
+                                                <em style="color: #c62828;">${excluded.reason_excluded}</em>
+                                            </div>
+                                        </div>
+                                    `;
+                                });
+                                excludedHtml += '</div>';
+                                
+                                excludedCodesList.innerHTML = excludedHtml;
+                                excludedCodesSection.style.display = 'block';
+                            } else {
+                                excludedCodesSection.style.display = 'none';
+                            }
+                            
+                        }
+                        
+                    } catch (error) {
+                        aiError.textContent = `Error: ${error.message}`;
+                        aiError.style.display = 'block';
+                        console.error('AI analysis error:', error);
+                    } finally {
+                        aiAnalyzeBtn.disabled = false;
+                        aiProcessingIndicator.style.display = 'none';
+                    }
+                });
+            }
         });
-        // Embed codes JSON for JS export
-    window.__codes = JSON.parse(document.getElementById('codes-json').textContent);
         </script>
         {% endif %}
     </div>

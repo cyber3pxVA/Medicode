@@ -13,6 +13,13 @@ services:
       - UMLS_PATH=/app/umls_data
       - DATABASE_URL=sqlite:////app/site.db
       - DRG_MAPPING_PATH=/app/drg_mapping.csv
+      - USE_RAG=1
+      - ENABLE_DRG=1
+      - USE_MEDSPACY_CONTEXT=1
+      - KEEP_NEGATED=1
+      - INPATIENT_DRG_DEFAULT=1
+      - ENABLE_OPENAI_DRG=1
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
     command: >
       sh -c "
         echo 'Initializing database...' &&

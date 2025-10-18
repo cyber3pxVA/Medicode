@@ -23,6 +23,9 @@ faiss-cpu==1.7.4
 dataclasses-json>=0.5.7
 
 
+# OpenAI Integration for AI-powered DRG Analysis
+openai>=1.0.0
+
 # Development and Testing
 pytest
 pytest-mock

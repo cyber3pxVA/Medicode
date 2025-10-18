@@ -50,3 +50,16 @@ class ProcessingLog(db.Model):
     processing_time = db.Column(db.Float, nullable=False)
     errors = db.Column(db.Text)
     timestamp = db.Column(db.DateTime, server_default=db.func.now())
+
+class ClinicalNoteHistory(db.Model):
+    """
+    ORM model for clinical_note_history table.
+    Stores history of clinical notes with timestamps for quick access.
+    """
+    __tablename__ = 'clinical_note_history'
+
+    id = db.Column(db.Integer, primary_key=True)
+    clinical_text = db.Column(db.Text, nullable=False)
+    preview = db.Column(db.String(200))  # First 200 chars for preview
+    created_at = db.Column(db.DateTime, server_default=db.func.now())
+    codes_count = db.Column(db.Integer, default=0)  # Number of codes extracted

@@ -24,6 +24,9 @@ medical-coding-app/drg_source/FY2025/
 ## Generating a Mapping CSV
 The application consumes a simplified mapping file referenced by the environment variable `DRG_MAPPING_PATH` (default `drg_mapping.csv`).
 
+Expanded workflow now supports optional severity triads (MCC > CC > BASE) and a heuristic
+rationale in API responses when inpatient DRG enrichment is requested.
+
 Because CMS does not publish a direct one-to-one ICD-10 → DRG table (grouping is rule-based), any CSV you build here is **heuristic** and must NOT be treated as official for billing.
 
 Recommended workflow:
@@ -42,10 +45,29 @@ Recommended workflow:
 If the CMS download did not include a CSV of long titles but provides a folder of `.txt` files (e.g. `msdrgv43.icd10_ro_definitionsmanual_text`), first extract long titles:
 ```bash
 docker compose exec web python scripts/extract_drg_long_titles_from_manual.py \
-    --input-dir drg_source/FY2026/msdrgv43.icd10_ro_definitionsmanual_text \
-    --out drg_source/FY2026/drg_long_titles_v43.csv
+        --input-dir drg_source/FY2026/msdrgv43.icd10_ro_definitionsmanual_text \
+        --out drg_source/FY2026/drg_long_titles_v43.csv
 ```
 Then use `--drg-titles drg_source/FY2026/drg_long_titles_v43.csv` with the build script.
+
+### Severity Triads (Heuristic)
+If you include multiple DRG rows per ICD root (e.g. 193/194/195 for pneumonia),
+the API will attempt to pick a severity based on presence of secondary diagnoses
+that map to DRGs containing `W MCC` or `W CC` in their description. A rationale
+object is added to the `/extract` JSON response under `drg_rationale`:
+
+```
+"drg_rationale": {
+    "principal_icd": "J18.9",
+    "principal_term": "pneumonia",
+    "available_variants": [ {"drg": "193", "severity": "MCC"}, ...],
+    "secondary_mcc_present": true,
+    "secondary_cc_present": false,
+    "chosen_severity": "MCC",
+    "chosen_drg": "193"
+}
+```
+This mechanism is illustrative only and NOT equivalent to the official CMS GROUPER.
 
 ## File Format Expected by App
 `drg_mapping.csv` should contain:

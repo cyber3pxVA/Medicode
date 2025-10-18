@@ -1,5 +1,11 @@
 """DRG Mapping Utility (Open Data Based)
 
+DEPRECATION NOTICE:
+    This module is now considered an internal implementation detail. Use
+    `app.drg.provider` for all DRG-related feature interactions. The provider
+    layer adds a runtime feature flag (ENABLE_DRG) and safe fallbacks so the
+    rest of the app can ignore DRG concerns entirely when disabled.
+
 Loads an ICD-10 -> MS-DRG mapping from a CSV file provided by the user.
 
 Expected CSV columns (case-insensitive):
@@ -12,8 +18,8 @@ NOT include full mapping; user supplies via environment variable or default path
 Environment Variables:
     DRG_MAPPING_PATH: Path to the mapping CSV (default: drg_mapping.csv in project root of medical-coding-app)
 
-Usage:
-    from app.utils.drg_mapping import get_drg_for_icd10
+Usage (legacy – prefer provider):
+    from app.drg.provider import get_drg_for_icd10
     drgs = get_drg_for_icd10('E11')  # returns list of {drg, description}
 """
 from __future__ import annotations

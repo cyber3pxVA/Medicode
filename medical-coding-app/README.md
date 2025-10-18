@@ -29,7 +29,46 @@ This application now features **RAG (Retrieval-Augmented Generation)** enhanced 
 4. **Context scoring** ranks results by clinical relevance
 5. **Parallel processing** handles multiple concepts simultaneously
 
-### Timeline & Attribution
+### RAG Pipeline Architecture (Detailed)
+Pipeline Phases & Data Flow:
+
+1. Span Detection (QuickUMLS)
+  - Input: Raw clinical note text
+  - Output: List[Match] each containing surface form, candidate CUIs, Jaccard similarity, semantic types.
+  - Filtering Criteria: minimum match length (3), threshold=0.7, overlapping criterion="length".
+
+2. Clinical Semantic Type Filter
+  - Keeps only matches whose UMLS semantic types intersect a curated whitelist (diseases, findings, procedures, substances, etc.).
+  - Drops high-frequency ambiguous calendar, measurement, or generic lexical tokens.
+
+3. False Positive Lexical Filter
+  - Lowercased term blacklist: { months, days, generic adjectives (high, low), ambiguous short tokens }.
+  - Removes items before downstream embedding to save compute.
+
+4. Context Window Extraction
+  - For each surviving surface form, extract ±N characters (configurable, default 50) around first occurrence.
+  - Purpose: Provide local lexical environment for relevance scoring.
+
+5. RAG Retrieval (UnQLite Backed)
+  - Key-Value Layout: CUI -> JSON blob (cached code lists + embeddings metadata if precomputed).
+  - If embedding cache miss: lazily compute textual embedding for canonical term & store.
+  - Returned: Candidate codes (SNOMED, ICD10CM, ICD10PCS, CPT, HCPCS) with base confidence.
+
+6. Semantic Scoring
+  - Two core signals:
+  - (Planned) Suppress near-duplicate lexical variants (case/spacing).
+
+- Code Entry: { code, description, confidence }
+Current Limitations / TODO:
+- Embedding model name & version not yet surfaced in API/health.
+- No global caching of term embedding for repeated identical terms across requests (opportunity for LRU).
+- No dynamic threshold tuning; slider currently maps to similarity/rag_relevance interchangeably.
+- UnQLite store remains inside container volume/bind; excluded by .gitignore.
+
+
+Future Enhancements Roadmap:
+- Streaming partial results for long documents.
+
 - RAG component source files drafted locally ~2025-08-14 (pre-git state) and integrated into version control in commit `19b820f` on 2025-09-15.
 - Authored within this project; no prior external repository lineage.
 - Currently optional: base routes still default to the non-RAG pipeline pending a toggle or full integration.
@@ -314,5 +353,101 @@ python scripts/extract_drg_long_titles_from_manual.py \
 ```
 Then use that CSV as the `--drg-titles` input.
 In the UI you must explicitly check "Inpatient Encounter" to enable DRG enrichment (unless `INPATIENT_DRG_DEFAULT=1` environment variable pre-checks it). The `/extract` JSON API requires `?inpatient=1` query parameter to include DRGs.
+
+---
+
+## Runtime Feature Flags & Configuration
+
+Set these in your `.env` or docker-compose `environment:` section.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `USE_RAG` | `0` | When `1`, forces RAG pipeline for `/extract` API requests (UI already attempts RAG then falls back). |
+| `ENABLE_DRG` | `0` | When `1`, enables DRG enrichment logic (still requires inpatient flag). |
+| `KEEP_NEGATED` | `0` | When `1`, keeps negated concepts in main list (flagged) instead of suppressing. |
+| `SKIP_UMLS_DOWNLOAD` | `0` | Skip remote/background UMLS acquisition (assumes local `umls_data/` prepared). |
+| `UMLS_DB_READONLY` | `0` | Open `umls_lookup.db` in read-only mode. |
+| `INPATIENT_DRG_DEFAULT` | `0` | Pre-check inpatient checkbox in UI when `1`. |
+| `DRG_MAPPING_PATH` | `/app/drg_mapping.csv` | CSV path inside container for DRG mapping. |
+| `USE_MEDSPACY_CONTEXT` | `0` | Use medSpaCy ConTextComponent for negation (fallback to heuristic). |
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET/POST | Web UI interface. |
+| `/extract` | POST | JSON extraction: `{ clinical_text }`; returns `codes`, `suppressed_negated`, `features`. `?inpatient=1` adds DRGs when enabled. |
+| `/health` | GET | Liveness probe `{ status, semantic_model }`. |
+| `/ready` | GET | Readiness / background UMLS init progress. |
+| `/features` | GET | Active flags + semantic model name. |
+| `/search` | POST | Semantic concept search (experimental) `{ query }`. |
+
+### `/extract` Response (example)
+```
+{
+  "codes": [
+    {
+      "cui": "C0020538",
+      "term": "Hypertension",
+      "similarity": 0.91,
+      "rag_relevance": 0.87,
+      "semtypes": ["dsyn"],
+      "icd10_codes": [{"code": "I10", "desc": "Essential (primary) hypertension"}],
+      "snomed_codes": [{"code": "38341003", "desc": "Hypertensive disorder"}],
+      "drg_codes": [{"drg": "683", "description": "DIABETES W/O CC/MCC"}],
+      "negated": false
+    }
+  ],
+  "suppressed_negated": [{"term": "Chest pain", "cui": "C0008031", "negated": true}],
+  "features": { "USE_RAG": true, "ENABLE_DRG": false }
+}
+```
+
+## Negation Handling & Suppressed Concepts
+
+Hybrid strategy:
+1. If `USE_MEDSPACY_CONTEXT=1`, attempt medSpaCy ConTextComponent (negation now; uncertainty/experiencer later).
+2. If component load fails or flag off, fall back to internal heuristic (window + scope breakers + phrase cues).
+
+Suppressed items surface in:
+
+- API: `suppressed_negated` array.
+- UI: Collapsible "Suppressed (Negated) Concepts" panel (auditing transparency).
+
+Set `KEEP_NEGATED=1` to keep them in main result list (still flagged `negated: true`).
+
+Limitations:
+- No complex scope / double-negation handling yet.
+- Plural & lemma variants partially handled (next iteration: lemma normalization pass).
+- Future: reason codes / provenance chain.
+
+## RAG vs Base Pipeline
+
+| Aspect | Base | RAG |
+|--------|------|-----|
+| Extraction | QuickUMLS direct | QuickUMLS + semantic pre-filter |
+| Scoring | Jaccard / fallback blended similarity | Adds `rag_relevance` contextual score |
+| Retrieval | SQLite on demand | UnQLite cached multi-code retrieval |
+| Negation | Implemented | Integration planned (shared utility) |
+| Toggle | n/a | `USE_RAG=1` (API) |
+
+Automatic fallback: if RAG returns zero concepts, base pipeline is invoked transparently.
+
+## Observability
+- `/features` → feature flags + embedding model.
+- `/health` → liveness + semantic model name.
+- `/ready` → background UMLS initialization progress.
+
+## Testing
+- `tests/test_negation.py` basic negation cases.
+- `tests/test_drg_toggle.py` DRG field presence under inpatient param.
+- Recommended additions: `/features` contract test, similarity normalization edge case, suppressed panel HTML.
+
+## Roadmap Excerpt
+- Unify negation/dedup for RAG path.
+- Provenance metadata (`applied_filters`, `suppression_reason`).
+- Streaming partial results for long documents.
+- Embedding cache warm snapshot export/import.
+- Adaptive relevance threshold tuning.
 
 ---

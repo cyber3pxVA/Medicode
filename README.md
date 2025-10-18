@@ -1,4 +1,4 @@
-# Medical Coding Application
+# Medicode - Medical Coding Application
 
 ## ⚠️ IMPORTANT: UMLS License Compliance
 
@@ -13,7 +13,16 @@
 ---
 
 ## Overview
-This application runs **entirely inside Docker**. All Python dependencies (NLP, ML, database), spaCy models, and supporting system libraries are baked into the image. **Install Docker & Docker Compose; do not install Python locally for this project.**
+Medicode is an AI-powered medical coding assistant that runs **entirely inside Docker**. All Python dependencies (NLP, ML, database), spaCy models, and supporting system libraries are baked into the image. **Install Docker & Docker Compose; do not install Python locally for this project.**
+
+### Key Features
+- **Two-Step Workflow**: NLP extraction followed by AI-powered analysis
+- **AI Analysis with OpenAI GPT-4o**: Intelligent code ranking and VHA VERA complexity scoring
+- **ICD-10 Code Grouping**: Automatically groups multiple medical terms that map to the same ICD-10 code
+- **DRG Classification**: AI-powered DRG analysis for inpatient cases
+- **Smart Filtering**: Adjustable similarity threshold and max codes display (1-30)
+- **Export Functionality**: CSV and JSON export of coding results
+- **Clean UI**: Easy-to-use interface with clear button and collapsible sections
 
 Recent update (2025-09-15): Upgraded base image to Python 3.10 and pinned heavy dependencies (`torch==2.1.2`, `faiss-cpu==1.7.4`, fixed `unqlite` version) to ensure reproducible builds.
 
@@ -114,6 +123,7 @@ Health endpoints:
 | `UMLS_DB_READONLY` | 0 | When `1`, opens `umls_lookup.db` in SQLite read-only URI mode (fails if DB missing). |
 | `UMLS_PATH` | `umls_data` | Base directory containing `META/` and lookup DB. |
 | `INPATIENT_DRG_DEFAULT` | `0` | When `1`, UI inpatient checkbox starts checked (DRG enrichment active if mapping present). |
+| `ENABLE_DRG` | `0` | When `1`, activates isolated DRG enrichment provider; otherwise DRG logic is skipped entirely. |
 
 If you mount `umls_data` read-only you must pre-populate `umls_lookup.db` and QuickUMLS cache; otherwise use a writable mount.
 
@@ -123,9 +133,15 @@ The `.gitignore` now blocks:
 - Lookup DB (`umls_lookup.db`), QuickUMLS caches, UnQLite artifacts
 Ensure you do NOT `git add` any derived or raw UMLS content.
 
-## Optional: DRG (MS-DRG) Enrichment
+## Optional: DRG (MS-DRG) Enrichment (Isolated Feature Flag)
 
-You can enrich ICD-10 codes with heuristic MS-DRG labels using a derived mapping CSV. This project deliberately does *not* ship CMS raw GROUPER logic or official proprietary distribution files.
+DRG enrichment is now isolated behind a provider layer (`app.drg.provider`) and a runtime flag. If you do nothing, the app behaves exactly as if DRGs do not exist (no file access, no overhead, `drg_codes` arrays always empty).
+
+Enable by setting BOTH:
+1. `ENABLE_DRG=1`
+2. Provide a mapping CSV via `DRG_MAPPING_PATH` (defaults to `drg_mapping.csv` in the app root)
+
+This project deliberately does *not* ship CMS raw GROUPER logic or official proprietary distribution files.
 
 ### Steps
 1. Read `medical-coding-app/DRG_SOURCE_NOTICE.md` for compliance & structure.
@@ -146,7 +162,8 @@ You can enrich ICD-10 codes with heuristic MS-DRG labels using a derived mapping
   ```
    DRG_MAPPING_PATH=/app/drg_mapping.csv
   ```
-7. Refresh the UI – DRG column appears for matched ICD roots.
+7. Set `ENABLE_DRG=1` in your container or compose environment.
+8. Refresh the UI – DRG / Complexity columns appear when inpatient mode selected.
 
 If you only have the definitions manual text bundle (folder with many `.txt` files), extract long titles first:
 ```bash
@@ -160,6 +177,8 @@ Then pass that CSV as `--drg-titles`.
 - This is **not** a substitute for running the official CMS GROUPER (which requires full claim context, diagnoses, procedures, sex, discharge status, etc.).
 - The mapping here is a *many-to-many heuristic* for exploratory enrichment only.
 - Do not commit raw CMS ZIPs or extracted proprietary tables—`.gitignore` already blocks `drg_source/` and `*.zip`.
+
+Direct use of `app.utils.drg_mapping` is deprecated; rely on `app.drg.provider` which adds safe fallbacks and lazy loading. If the feature is off or the file missing, the UI simply shows no DRG data.
 
 Detailed rationale and format expectations: `medical-coding-app/DRG_SOURCE_NOTICE.md`.
 
