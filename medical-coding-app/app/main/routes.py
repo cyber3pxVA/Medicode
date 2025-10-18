@@ -178,11 +178,19 @@ def ai_analyze_codes():
             print(f"DEBUG: AI analysis complete - DRG: {openai_analysis.primary_drg}, "
                   f"Complexity: {openai_analysis.complexity_level}")
             
+            # Debug: Print all excluded codes from AI
+            if openai_analysis.excluded_codes:
+                print(f"DEBUG: AI excluded {len(openai_analysis.excluded_codes)} codes:")
+                for excluded in openai_analysis.excluded_codes:
+                    print(f"  - {excluded.get('code')}: {excluded.get('reason_excluded')}")
+            
             # Filter out excluded codes from the table
             excluded_icd10_codes = set()
             if openai_analysis.excluded_codes:
                 for excluded in openai_analysis.excluded_codes:
                     excluded_icd10_codes.add(excluded.get('code', ''))
+            
+            print(f"DEBUG: Excluded ICD-10 codes set: {excluded_icd10_codes}")
             
             # Filter codes - remove excluded ones
             filtered_codes = []
@@ -190,13 +198,22 @@ def ai_analyze_codes():
             
             for concept in codes:
                 if concept.get('icd10_codes'):
-                    icd10_code = concept['icd10_codes'][0].get('code', '')
-                    if icd10_code in excluded_icd10_codes:
+                    # Check ALL ICD-10 codes in this concept
+                    concept_icd10_codes = [icd.get('code', '') for icd in concept['icd10_codes']]
+                    print(f"DEBUG: Checking concept with ICD-10 codes: {concept_icd10_codes}")
+                    
+                    # If ANY of the concept's ICD-10 codes are excluded, exclude the whole concept
+                    is_excluded = any(code in excluded_icd10_codes for code in concept_icd10_codes)
+                    
+                    if is_excluded:
+                        print(f"DEBUG: EXCLUDING concept: {concept.get('term')} - ICD codes: {concept_icd10_codes}")
                         excluded_concepts.append(concept)
                     else:
                         filtered_codes.append(concept)
                 else:
                     filtered_codes.append(concept)
+            
+            print(f"DEBUG: Filtered {len(filtered_codes)} codes, excluded {len(excluded_concepts)} concepts")
             
             # Create comprehensive response
             return jsonify({

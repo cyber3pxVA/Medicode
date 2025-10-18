@@ -141,31 +141,39 @@ class OpenAIDRGAnalyzer:
    - Do NOT add any new ICD-10 codes not provided by NLP
    - Prioritize codes for conditions actively managed in THIS encounter
    - **Default to EXCLUDE** - Only keep codes with crystal-clear evidence that the patient HAS this condition AND it's relevant to this visit
+   - **CRITICAL**: Do NOT make up diagnoses, complications, or severity levels not explicitly documented in the clinical note
+   - **CRITICAL**: Do NOT upgrade severity (e.g., "uncomplicated" to "with complications") unless explicitly stated
+   - **CRITICAL**: Use ONLY the ICD-10 codes provided by NLP - do NOT invent new codes or modify existing ones
 
 2. **Assign MS-DRG Code** (if applicable for inpatient encounters):
-   - Determine the appropriate MS-DRG based on selected ICD-10 codes
+   - Determine the appropriate MS-DRG based ONLY on selected ICD-10 codes that are explicitly documented
    - Consider principal diagnosis, secondary diagnoses, and complications/comorbidities (CC/MCC)
+   - **CRITICAL**: Do NOT maximize DRG by inventing complications or upgrading severity
+   - **CRITICAL**: Only assign CC/MCC if explicitly documented with supporting clinical evidence in the note
    - Provide DRG description and rationale for assignment
    - If outpatient encounter, note "Not Applicable - Outpatient"
 
 3. **Determine VHA Complexity Code** (VERA System):
    - Assign the appropriate **VHA/VA Complexity Level** based on VERA (Veterans Equitable Resource Allocation) guidelines
    - VHA Complexity Levels: **1 (Low), 2 (Moderate), 3 (High), 4 (Very High), 5 (Extremely High)**
-   - Consider:
-     * Number and severity of chronic conditions
-     * Service-connected disabilities
-     * Mental health comorbidities
-     * Age and functional status
-     * Resource utilization and care intensity
-     * Pharmacy complexity
-     * Multiple provider involvement
-   - Provide detailed rationale for the assigned VHA complexity level
+   - **CRITICAL**: Base complexity ONLY on documented conditions in the clinical note - do NOT assume or invent conditions
+   - **CRITICAL**: Do NOT upgrade complexity by assuming severity not explicitly stated
+   - Consider ONLY what is documented:
+     * Number and severity of chronic conditions (as documented)
+     * Service-connected disabilities (if mentioned)
+     * Mental health comorbidities (if documented)
+     * Age and functional status (if stated)
+     * Resource utilization and care intensity (based on visit content)
+     * Pharmacy complexity (based on medications listed)
+     * Multiple provider involvement (if documented)
+   - Provide detailed rationale for the assigned VHA complexity level based on actual documentation
 
 4. **Provide VA-Specific Coding Recommendations**:
-   - **Maximize VERA Complexity**: Suggest strategies to accurately capture higher complexity for VA resource allocation
-   - **Documentation Improvements**: Recommend clinical documentation that supports appropriate VERA complexity scores
-   - **Service-Connected Conditions**: Identify opportunities to properly document VA service-connected disabilities and conditions
-   - **Better Coding**: General suggestions for more accurate and complete VA coding practices
+   - **Maximize VERA Complexity**: Suggest strategies to accurately capture complexity based on what IS documented (not by inventing conditions)
+   - **Documentation Improvements**: Recommend clinical documentation that would support appropriate VERA complexity IF those conditions exist
+   - **Service-Connected Conditions**: Identify opportunities to document VA service-connected disabilities IF they exist
+   - **Better Coding**: Suggest more accurate and complete coding based ONLY on documented information
+   - **CRITICAL**: Recommendations should be for FUTURE documentation improvements, NOT to add information to THIS visit's coding
 
 **VHA VERA Complexity Scoring Guidelines:**
 - **Level 5 (Extremely High)**: Multiple severe chronic conditions, high pharmacy burden, frequent admissions, intensive care needs
@@ -383,11 +391,19 @@ Return a JSON object with this structure:
         prompt_parts.append("   - Actively addressed/treated/monitored by provider in THIS visit\n")
         prompt_parts.append("   - Patient's chief complaint or current concern\n")
         prompt_parts.append("   - Being managed with medications, procedures, or clinical decisions TODAY\n")
-        prompt_parts.append("5. Rank ALL kept codes by importance (1=most important for billing/DRG)\n")
-        prompt_parts.append("6. Determine MS-DRG based on your selected ICD-10 codes\n")
-        prompt_parts.append("7. Assess VHA VERA complexity level and provide coding recommendations\n")
-        prompt_parts.append("8. Return your analysis in the specified JSON format\n")
-        prompt_parts.append("\n**CRITICAL RULE**: When uncertain if a code is actually for THIS PATIENT in THIS VISIT, EXCLUDE it with clear reasoning. Default to EXCLUDE, not include.\n")
+        prompt_parts.append("5. **DO NOT** make up diagnoses, complications, or severity levels not in the note\n")
+        prompt_parts.append("6. **DO NOT** upgrade ICD-10 codes (e.g., don't change 'uncomplicated' to 'with complications')\n")
+        prompt_parts.append("7. **DO NOT** add CC/MCC/complications to maximize DRG unless explicitly documented\n")
+        prompt_parts.append("8. Rank ALL kept codes by importance (1=most important for billing/DRG)\n")
+        prompt_parts.append("9. Determine MS-DRG based ONLY on documented codes and severity\n")
+        prompt_parts.append("10. Assess VHA VERA complexity based ONLY on what is documented\n")
+        prompt_parts.append("11. Return your analysis in the specified JSON format\n")
+        prompt_parts.append("\n**CRITICAL RULES**:\n")
+        prompt_parts.append("- When uncertain if a code is for THIS PATIENT in THIS VISIT, EXCLUDE it with clear reasoning\n")
+        prompt_parts.append("- Default to EXCLUDE, not include\n")
+        prompt_parts.append("- Use ONLY codes provided by NLP - do NOT invent or modify codes\n")
+        prompt_parts.append("- Do NOT upgrade severity, complications, or DRG assignment beyond what is explicitly documented\n")
+        prompt_parts.append("- Be conservative and honest - code what is documented, not what might maximize reimbursement\n")
         
         return "".join(prompt_parts)
     
