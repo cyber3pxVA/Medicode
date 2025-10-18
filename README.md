@@ -1,4 +1,6 @@
-# Medicode - Medical Coding Application
+# Medicode - AI-Powered Medical Coding Assistant
+
+**This is an open source application available here: https://github.com/frasod/Medicode**
 
 ## ⚠️ IMPORTANT: UMLS License Compliance
 
@@ -13,24 +15,39 @@
 ---
 
 ## Overview
-Medicode is an AI-powered medical coding assistant that runs **entirely inside Docker**. All Python dependencies (NLP, ML, database), spaCy models, and supporting system libraries are baked into the image. **Install Docker & Docker Compose; do not install Python locally for this project.**
+Medicode is an AI-powered medical coding assistant that runs **entirely inside Docker**. It uses a **two-step workflow** combining traditional NLP with modern AI to deliver accurate, context-aware medical coding for the Department of Veterans Affairs (VA) and other healthcare settings.
+
+### Two-Step Workflow
+
+#### Step 1: NLP Extraction (QuickUMLS + spaCy)
+- Fast concept extraction from clinical text
+- Matches medical terms to UMLS Concept Unique Identifiers (CUIs)
+- Maps CUIs to ICD-10, SNOMED CT, and other coding systems
+- Optional semantic enhancement for improved accuracy (USE_RAG=1)
+- Negation detection to filter out denied conditions
+
+#### Step 2: AI Analysis (OpenAI GPT-4o)
+- **Code Validation**: Reviews all NLP-extracted codes for clinical relevance
+- **Medical Reasoning**: Provides exclusion rationale for inappropriate codes
+- **MS-DRG Assignment**: Determines appropriate DRG codes for inpatient encounters
+- **VHA VERA Complexity**: Assesses patient complexity using VA's 5-level scoring system
+- **Coding Recommendations**: Suggests documentation improvements and coding best practices
+- **VA-Specific Context**: Applies Department of Veterans Affairs coding standards
 
 ### Key Features
-- **Two-Step Workflow**: NLP extraction followed by AI-powered analysis
-- **AI Analysis with OpenAI GPT-4o**: Intelligent code ranking and VHA VERA complexity scoring
+- **VA Medical Coder Context**: AI identifies as a certified medical coder working at a VA Medical Center
+- **Intelligent Code Validation**: AI excludes invalid codes with medical rationale
+- **MS-DRG Classification**: Automated DRG assignment with CC/MCC consideration
+- **VHA VERA Complexity Scoring**: 5-level patient complexity assessment
 - **ICD-10 Code Grouping**: Automatically groups multiple medical terms that map to the same ICD-10 code
-- **DRG Classification**: AI-powered DRG analysis for inpatient cases
 - **Smart Filtering**: Adjustable similarity threshold and max codes display (1-30)
 - **Export Functionality**: CSV and JSON export of coding results
-- **Clean UI**: Easy-to-use interface with clear button and collapsible sections
+- **Clean UI**: Two-panel interface with NLP Raw Analysis table and AI Analysis section
 
-Recent update (2025-09-15): Upgraded base image to Python 3.10 and pinned heavy dependencies (`torch==2.1.2`, `faiss-cpu==1.7.4`, fixed `unqlite` version) to ensure reproducible builds.
+Recent update (2025-10-18): Major refactor to AI-driven medical coding with VA context. DRG assignment is now handled by OpenAI GPT-4o analysis rather than static mapping files.
 
-RAG Pipeline Timeline & Attribution:
-- Initial local draft of RAG components (untracked files: `rag_enhanced_lookup.py`, `rag_pipeline.py`, `test_rag.py`) created ~2025-08-14 (based on filesystem timestamps) prior to git integration.
-- Added to version control and documented in commit `19b820f` (2025-09-15) alongside environment modernization.
-- Concept & implementation originated within this project (no prior external git history).
-- Current app defaults to base pipeline; RAG code is available for testing (`test_rag.py`) and future route integration.
+**Semantic Enhancement (Optional):**
+The app includes an optional "RAG-like" semantic search enhancement (not traditional RAG/retrieval-augmented generation). When enabled via `USE_RAG=1`, it uses sentence transformers and FAISS vector search to improve concept matching accuracy. This is distinct from the OpenAI GPT-4o analysis and focuses on improving the initial NLP extraction step.
 
 ## 🔐 Security & Access Control
 
@@ -49,9 +66,11 @@ RAG Pipeline Timeline & Attribution:
 **What engines/services does it use?**
 - **QuickUMLS**: Fast engine for matching medical terms to UMLS concepts (CUIs)
 - **spaCy & medSpaCy**: NLP libraries for processing clinical language
+- **OpenAI GPT-4o**: AI model for intelligent code validation, MS-DRG assignment, and VHA complexity scoring
 - **SQLite**: Lightweight database for fast code lookups (SNOMED, ICD-10)
 - **UMLS Metathesaurus**: The official source of medical concepts and codes (user must provide)
 - **Flask**: Web framework for the user interface and API
+- **Optional Semantic Enhancement**: Sentence transformers + FAISS for improved concept matching (USE_RAG=1)
 
 **Folder Structure (Key Parts):**
 
@@ -60,9 +79,10 @@ medical-coding-app/
 │
 ├── app/                  # Main application code
 │   ├── main/             # Web routes, forms, and main logic
-│   ├── nlp/              # NLP pipeline (QuickUMLS, spaCy)
+│   ├── nlp/              # NLP pipeline (QuickUMLS, spaCy, optional semantic enhancement)
+│   ├── ai/               # OpenAI GPT-4o integration for code validation and DRG analysis
 │   ├── models/           # Database models
-│   ├── utils/            # Utilities (UMLS lookup, audit, export, semantic types)
+│   ├── utils/            # Utilities (UMLS lookup, audit, export, semantic types, negation)
 │   ├── static/           # CSS and static files
 │   └── templates/        # HTML templates
 │
@@ -76,20 +96,36 @@ medical-coding-app/
 └── README.md             # This file
 ```
 
-**How does the pipeline work? (Simple Terms)**
+**How does the two-step workflow work?**
+
+### Step 1: NLP Extraction
 1. **User enters clinical text** in the web UI and clicks "Extract" (or presses Enter).
 2. The app sends the text to the backend Flask server.
 3. The **NLP pipeline** (in `app/nlp/pipeline.py`) uses **QuickUMLS** and **spaCy** to:
    - Split the text into sentences and words
    - Find phrases that match medical concepts in the UMLS Metathesaurus
    - Assign each match a CUI (Concept Unique Identifier), semantic type, and similarity score
+   - Apply negation detection to filter out denied conditions (e.g., "no history of diabetes")
 4. For each CUI, the app looks up related **SNOMED CT** and **ICD-10** codes using a fast **SQLite** database built from the UMLS files (see `app/utils/umls_lookup.py`).
-5. The results (CUI, term, codes, types, confidence) are shown in the web UI for review and export.
+5. Optional: If `USE_RAG=1`, semantic enhancement improves concept matching using sentence transformers and FAISS vector search.
+6. The **NLP Raw Analysis table** displays all extracted codes, terms, CUIs, and confidence scores.
+
+### Step 2: AI Analysis (OpenAI GPT-4o)
+1. **User clicks "AI Analysis"** button after reviewing the extracted codes.
+2. The app sends the clinical text and NLP-extracted codes to **OpenAI GPT-4o**.
+3. The AI acts as a **VA medical coder** and performs:
+   - **Code Validation**: Reviews each ICD-10 code for clinical appropriateness
+   - **Exclusion with Rationale**: Identifies invalid codes and explains why (e.g., "symptom code when diagnosis available", "not documented in note", "NLP extraction error")
+   - **MS-DRG Assignment**: Determines appropriate DRG code for inpatient encounters, considering principal diagnosis, CC/MCC, and provides rationale
+   - **VHA VERA Complexity**: Assigns 1 of 5 complexity levels based on chronic conditions, comorbidities, and service-connected disabilities
+   - **Coding Recommendations**: Suggests documentation improvements and VA-specific coding opportunities
+4. The **AI Analysis section** displays the results with color-coded sections (MS-DRG, VHA complexity, recommendations).
+5. The **NLP Raw Analysis table** is filtered to show only AI-validated codes.
+6. **Excluded codes** appear below the table with medical reasoning for each exclusion.
 
 **In short:**
-- The app uses NLP to find medical concepts in your text
-- It matches them to UMLS CUIs using QuickUMLS
-- It finds related SNOMED/ICD-10 codes for each concept
+- Step 1 (NLP) casts a wide net to find all possible medical concepts
+- Step 2 (AI) applies clinical judgment to validate codes and provide context-aware analysis
 - Everything runs inside Docker for easy setup and reproducibility
 
 ---
@@ -119,11 +155,14 @@ Health endpoints:
 ## New Environment Toggles
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `SKIP_UMLS_DOWNLOAD` | 0 | When `1`, bypasses background remote UMLS init script if local data already present. |
-| `UMLS_DB_READONLY` | 0 | When `1`, opens `umls_lookup.db` in SQLite read-only URI mode (fails if DB missing). |
-| `UMLS_PATH` | `umls_data` | Base directory containing `META/` and lookup DB. |
-| `INPATIENT_DRG_DEFAULT` | `0` | When `1`, UI inpatient checkbox starts checked (DRG enrichment active if mapping present). |
-| `ENABLE_DRG` | `0` | When `1`, activates isolated DRG enrichment provider; otherwise DRG logic is skipped entirely. |
+| `OPENAI_API_KEY` | (required for AI) | OpenAI API key for GPT-4o analysis. Get from https://platform.openai.com/ |
+| `ENABLE_OPENAI_DRG` | `0` | When `1`, enables AI-powered code validation and MS-DRG analysis |
+| `USE_RAG` | `0` | When `1`, enables semantic enhancement for NLP extraction (FAISS vector search) |
+| `SKIP_UMLS_DOWNLOAD` | `0` | When `1`, bypasses background remote UMLS init script if local data already present |
+| `UMLS_DB_READONLY` | `0` | When `1`, opens `umls_lookup.db` in SQLite read-only URI mode (fails if DB missing) |
+| `UMLS_PATH` | `umls_data` | Base directory containing `META/` and lookup DB |
+| `INPATIENT_DRG_DEFAULT` | `0` | When `1`, UI inpatient checkbox starts checked (deprecated - DRG now handled by AI) |
+| `ENABLE_DRG` | `0` | **Deprecated** - DRG assignment now handled by OpenAI GPT-4o when `ENABLE_OPENAI_DRG=1` |
 
 If you mount `umls_data` read-only you must pre-populate `umls_lookup.db` and QuickUMLS cache; otherwise use a writable mount.
 
@@ -133,54 +172,29 @@ The `.gitignore` now blocks:
 - Lookup DB (`umls_lookup.db`), QuickUMLS caches, UnQLite artifacts
 Ensure you do NOT `git add` any derived or raw UMLS content.
 
-## Optional: DRG (MS-DRG) Enrichment (Isolated Feature Flag)
+## MS-DRG Assignment (AI-Powered)
 
-DRG enrichment is now isolated behind a provider layer (`app.drg.provider`) and a runtime flag. If you do nothing, the app behaves exactly as if DRGs do not exist (no file access, no overhead, `drg_codes` arrays always empty).
+**MS-DRG assignment is now handled by OpenAI GPT-4o**, not static mapping files.
 
-Enable by setting BOTH:
-1. `ENABLE_DRG=1`
-2. Provide a mapping CSV via `DRG_MAPPING_PATH` (defaults to `drg_mapping.csv` in the app root)
+### How It Works
+1. Set `ENABLE_OPENAI_DRG=1` and provide `OPENAI_API_KEY` in your environment
+2. After NLP extraction, click "AI Analysis" button
+3. GPT-4o determines the appropriate MS-DRG based on:
+   - Principal diagnosis (ICD-10 code)
+   - Secondary diagnoses and comorbidities
+   - Complications and Comorbidities (CC) / Major CC (MCC)
+   - Clinical context from the note
+4. AI provides DRG code, description, and detailed rationale
+5. Alternative DRGs suggested when applicable
 
-This project deliberately does *not* ship CMS raw GROUPER logic or official proprietary distribution files.
+### Important Notes
+- This is **not** a substitute for running the official CMS GROUPER (which requires full claim context)
+- The AI analysis is for educational and exploratory purposes
+- Always verify DRG assignments using your organization's official billing system
+- For VA facilities, VHA VERA complexity scoring is also provided (5 levels)
 
-### Steps
-1. Read `medical-coding-app/DRG_SOURCE_NOTICE.md` for compliance & structure.
-2. Download CMS MS-DRG Definitions/Data Files ZIP for the fiscal year (e.g., FY2025) manually from the CMS site.
-3. Place the raw ZIP (and any extracted CSV like `MS-DRG Long Titles.csv`) under:
-  ```
-  medical-coding-app/drg_source/FY2025/
-  ```
-4. Create (or curate) an `icd_roots_to_drg.csv` mapping (columns: `ICD10,DRG`). This is heuristic—not official grouping output.
-5. Run inside the container to build the simplified mapping consumed by the app:
-  ```bash
-  docker compose exec web python scripts/build_drg_mapping.py \
-     --drg-titles drg_source/FY2025/MS-DRG_Long_Titles.csv \
-     --icd-map drg_source/FY2025/icd_roots_to_drg.csv \
-  --out drg_mapping.csv
-  ```
-6. Set (or confirm) environment variable (in `.env` or docker compose) so the app loads it:
-  ```
-   DRG_MAPPING_PATH=/app/drg_mapping.csv
-  ```
-7. Set `ENABLE_DRG=1` in your container or compose environment.
-8. Refresh the UI – DRG / Complexity columns appear when inpatient mode selected.
-
-If you only have the definitions manual text bundle (folder with many `.txt` files), extract long titles first:
-```bash
-docker compose exec web python scripts/extract_drg_long_titles_from_manual.py \
-  --input-dir drg_source/FY2026/msdrgv43.icd10_ro_definitionsmanual_text \
-  --out drg_source/FY2026/drg_long_titles_v43.csv
-```
-Then pass that CSV as `--drg-titles`.
-
-### Caveats & Disclaimer
-- This is **not** a substitute for running the official CMS GROUPER (which requires full claim context, diagnoses, procedures, sex, discharge status, etc.).
-- The mapping here is a *many-to-many heuristic* for exploratory enrichment only.
-- Do not commit raw CMS ZIPs or extracted proprietary tables—`.gitignore` already blocks `drg_source/` and `*.zip`.
-
-Direct use of `app.utils.drg_mapping` is deprecated; rely on `app.drg.provider` which adds safe fallbacks and lazy loading. If the feature is off or the file missing, the UI simply shows no DRG data.
-
-Detailed rationale and format expectations: `medical-coding-app/DRG_SOURCE_NOTICE.md`.
+### Legacy DRG Mapping (Deprecated)
+The old static DRG mapping system (`ENABLE_DRG=1` with CSV files) is deprecated and will be removed in future versions. The AI-driven approach provides more accurate, context-aware DRG assignment with medical reasoning.
 
 ## Troubleshooting Snapshot
 | Symptom | Likely Cause | Fix |
@@ -221,7 +235,18 @@ What happens on first run:
 
 Example `.env` file:
 ```
-UMLS_API_KEY=your_real_key_here
+# OpenAI API key for AI analysis (required for GPT-4o features)
+OPENAI_API_KEY=sk-proj-your_real_key_here
+
+# Enable AI-powered code validation and MS-DRG assignment
+ENABLE_OPENAI_DRG=1
+
+# Optional: Enable semantic enhancement for NLP extraction
+USE_RAG=0
+
+# UMLS configuration
+UMLS_PATH=umls_data
+SKIP_UMLS_DOWNLOAD=1
 ```
 
 ---
@@ -272,13 +297,13 @@ This project is licensed under the MIT License. See the LICENSE file for details
 |-------|------------|
 | Runtime | Python 3.10 (Docker slim base) |
 | Web/API | Flask, Flask-WTF, SQLAlchemy |
-| NLP Core | spaCy 3.4.4, en_core_web_sm, en_core_sci_sm, NLTK |
-| Concept Mapping | QuickUMLS 1.4.x |
-| RAG / Semantic | sentence-transformers, transformers, torch 2.1.2, faiss-cpu 1.7.4 |
+| NLP Core | spaCy 3.4.4, en_core_web_sm, en_core_sci_sm, NLTK, QuickUMLS 1.4.x |
+| AI Analysis | OpenAI GPT-4o (code validation, MS-DRG assignment, VHA VERA complexity) |
+| Semantic Enhancement (Optional) | sentence-transformers, transformers, torch 2.1.2, faiss-cpu 1.7.4 |
 | Storage | SQLite (primary), UnQLite (fast CUI/code cache) |
 | Data Source | UMLS Metathesaurus (user supplied) |
 
-Pinned heavy binaries: `torch==2.1.2`, `faiss-cpu==1.7.4`, `unqlite==0.9.9` for reproducibility.
+**Note on "RAG-like" functionality:** The optional semantic enhancement (USE_RAG=1) uses vector similarity search to improve concept matching, but is not traditional RAG (Retrieval-Augmented Generation). The actual AI analysis uses OpenAI GPT-4o with structured prompts, not RAG architecture.
 
 ## Contributing
 Contributions are welcome! Please submit a pull request or open an issue for any enhancements or bug fixes.
