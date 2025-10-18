@@ -952,6 +952,23 @@
                             aiAnalysisContent.innerHTML = html;
                             aiAnalysisPanel.style.display = 'block';
                             
+                            // Add event listener for DRG toggle button
+                            const drgToggleBtn = document.getElementById('toggle-drg-assessment');
+                            const drgContent = document.getElementById('drg-assessment-content');
+                            if (drgToggleBtn && drgContent) {
+                                drgToggleBtn.addEventListener('click', () => {
+                                    if (drgContent.style.display === 'none') {
+                                        drgContent.style.display = 'block';
+                                        drgToggleBtn.textContent = '📋 Hide MS-DRG Assessment';
+                                        drgToggleBtn.style.background = '#d32f2f';
+                                    } else {
+                                        drgContent.style.display = 'none';
+                                        drgToggleBtn.textContent = '📋 Show MS-DRG Assessment';
+                                        drgToggleBtn.style.background = '#1976d2';
+                                    }
+                                });
+                            }
+                            
                             // Update codes in the table (filtered - excluded codes removed)
                             if (data.codes) {
                                 const newCodes = data.codes;

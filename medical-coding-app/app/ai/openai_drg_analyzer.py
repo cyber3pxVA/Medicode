@@ -487,9 +487,23 @@ Return a JSON object with this structure:
 </div>
 """
             
-            # Combine all parts with HTML formatting (exclude codes will be shown below the table)
+            # Combine all parts with HTML formatting (DRG will be at bottom, hidden by default)
+            # Order: Clinical Reasoning -> Top 5 Codes -> VHA Complexity -> Recommendations -> DRG (collapsible)
             clinical_reasoning_html = response_data.get('clinical_reasoning', '')
-            full_reasoning = f"{clinical_reasoning_html}{drg_summary_html}{codes_summary_html}{vha_summary_html}{recommendations_html}"
+            
+            # Add DRG toggle button and collapsible section
+            drg_section_html = f"""
+<div style="margin-top: 1.5em; padding-top: 1em; border-top: 2px solid #e0e0e0;">
+    <button id="toggle-drg-assessment" type="button" style="padding: 0.8em 1.5em; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 1em; font-weight: bold;">
+        📋 Show MS-DRG Assessment
+    </button>
+    <div id="drg-assessment-content" style="display: none; margin-top: 1em;">
+        {drg_summary_html}
+    </div>
+</div>
+"""
+            
+            full_reasoning = f"{clinical_reasoning_html}{codes_summary_html}{vha_summary_html}{recommendations_html}{drg_section_html}"
             
             # Store VHA complexity in the complexity_level field (format: "Level X - Description")
             complexity_display = f"VHA Level {vha_complexity} - {vha_complexity_desc}"
