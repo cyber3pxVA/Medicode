@@ -372,14 +372,14 @@ Return a JSON object with this structure:
 </div>
 """
             
-            # Format selected codes for display
+            # Format selected codes for display - TOP 5 ONLY
             selected_codes = response_data.get('selected_icd10_codes', [])
-            # Sort by rank if provided
-            selected_codes_sorted = sorted(selected_codes, key=lambda x: x.get('rank', 999))[:10]
+            # Sort by rank if provided and limit to top 5
+            selected_codes_sorted = sorted(selected_codes, key=lambda x: x.get('rank', 999))[:5]
             
             codes_summary_html = """
 <div style="margin-bottom: 1em;">
-    <h4 style="color: #558b2f; margin-bottom: 0.5em;">Selected ICD-10 Codes (Ranked by Relevance)</h4>
+    <h4 style="color: #558b2f; margin-bottom: 0.5em;">Top 5 Primary Diagnoses (Ranked by Relevance)</h4>
     <ol style="margin: 0; padding-left: 1.5em;">
 """
             for code_info in selected_codes_sorted:
