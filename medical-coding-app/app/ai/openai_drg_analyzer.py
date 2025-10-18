@@ -117,22 +117,30 @@ class OpenAIDRGAnalyzer:
 1. **Review and Validate ALL ICD-10 Codes** from the prior NLP routine:
    - Review ALL ICD-10 codes provided by the NLP extraction
    - For EACH code, determine if it should be KEPT or EXCLUDED
-   - **KEPT codes**: Select ALL clinically appropriate and billable codes, then rank them by relevance (1 = most important)
-   - **Target**: Aim to keep at least 5-10 primary diagnoses if clinically supported by the note
-   - **EXCLUDED codes**: List codes that are NOT appropriate with clear medical coding rationale
-   - **Reasons to EXCLUDE (be very restrictive)**:
-     * **NLP Misinterpretation**: Patient name mistaken for disease (e.g., "Rose" → rose fever), common words misidentified as medical terms
-     * **Social History**: Conditions mentioned in social context (e.g., "patient's cat has diabetes", "family owns animals", "works with chemicals")
-     * **Family History**: Conditions affecting family members, not the patient (e.g., "mother has diabetes", "father died of MI")
-     * **Past Medical History**: Conditions explicitly stated as "history of" without current evidence or treatment
-     * **Negated Findings**: Conditions stated as denied, ruled out, or absent (e.g., "denies chest pain", "no history of diabetes")
-     * **Insufficient Documentation**: Code cannot be supported by clinical note content
-     * **Symptom vs Diagnosis**: Not a billable diagnosis when underlying cause is known (symptom code when diagnosis available)
-     * **Duplicate/Non-Specific**: More specific code available or duplicate representation
-     * **Contextual Errors**: Code extracted from wrong section (e.g., differential diagnosis, patient education, hypothetical scenarios)
+   - **KEPT codes**: ONLY conditions that are:
+     * **Actively addressed in THIS visit** by the provider (treatment, evaluation, or monitoring)
+     * **Patient's current concern** mentioned as chief complaint or reason for visit
+     * **Being actively managed** with prescriptions, procedures, or clinical decisions TODAY
+   - **Target**: Aim for 5-10 primary diagnoses IF clinically supported and relevant to THIS encounter
+   - **EXCLUDED codes**: MUST be excluded if ANY of these apply:
+     * **PATIENT NAME**: Code matches patient surname or first name (e.g., patient "John Smith" → Smith fracture MUST be excluded)
+     * **PROVIDER NAME**: Code matches provider's name in signature or header
+     * **PATIENT NAME**: Code matches patient surname or first name (e.g., patient "John Smith" → Smith fracture MUST be excluded)
+     * **PROVIDER NAME**: Code matches provider's name in signature or header
+     * **NLP Misinterpretation**: Common words misidentified as medical terms (e.g., "may" → May disease)
+     * **Family History ONLY**: Conditions of relatives NOT the patient (e.g., "mother has diabetes", "father died of MI") - EXCLUDE unless patient also has the condition
+     * **Social History**: Pets, family members, occupational exposures mentioned in passing without patient diagnosis
+     * **Past Medical History ONLY**: "History of" conditions with NO current evidence, treatment, or monitoring in this visit
+     * **Negated/Ruled Out**: Explicitly denied or ruled out (e.g., "denies chest pain", "no diabetes", "rules out MI")
+     * **Not Addressed This Visit**: Condition mentioned but NOT evaluated, treated, or managed in this encounter
+     * **Differential Diagnosis**: Conditions considered but ruled out or not confirmed
+     * **Patient Education**: Conditions discussed hypothetically for prevention/education, not actual diagnoses
+     * **Insufficient Documentation**: Cannot confirm patient actually has this condition based on note
+     * **Symptom Code**: Use diagnosis code instead when underlying cause is documented
+     * **Duplicate/Non-Specific**: More specific code available
    - Do NOT add any new ICD-10 codes not provided by NLP
-   - Prioritize codes that impact VERA complexity and MS-DRG assignment
-   - **Be highly critical** - when in doubt about NLP extraction accuracy, EXCLUDE the code with explanation
+   - Prioritize codes for conditions actively managed in THIS encounter
+   - **Default to EXCLUDE** - Only keep codes with crystal-clear evidence that the patient HAS this condition AND it's relevant to this visit
 
 2. **Assign MS-DRG Code** (if applicable for inpatient encounters):
    - Determine the appropriate MS-DRG based on selected ICD-10 codes
@@ -172,6 +180,7 @@ class OpenAIDRGAnalyzer:
 - Use HTML lists (<ul><li>) instead of bullet points
 - Use <strong> for emphasis instead of **bold**
 - Use <br> for line breaks instead of blank lines
+- **clinical_reasoning field**: Focus ONLY on code validation summary, do NOT include MS-DRG information here (DRG has its own separate fields)
 
 **Response Format:**
 Return a JSON object with this structure:
@@ -211,34 +220,39 @@ Return a JSON object with this structure:
     ],
     "excluded_icd10_codes": [
         {
+            "code": "S52.541A",
+            "description": "Smith's fracture of right radius, initial encounter",
+            "reason_excluded": "Patient name is 'John Smith' - NLP misinterpreted patient surname as Smith fracture. No fracture documented in clinical note."
+        },
+        {
             "code": "R00.0",
             "description": "Tachycardia, unspecified",
-            "reason_excluded": "Symptom of underlying condition (heart failure), not separately billable when cause is identified"
+            "reason_excluded": "Symptom of underlying heart failure, not separately billable when cause is identified"
         },
         {
             "code": "Z79.4",
             "description": "Long term use of insulin",
-            "reason_excluded": "Not documented in clinical note, NLP extraction error"
+            "reason_excluded": "Not documented in this visit, no insulin prescription or discussion in current note"
         },
         {
             "code": "E11.9",
             "description": "Type 2 diabetes mellitus without complications",
-            "reason_excluded": "Family history only - note states 'mother has diabetes', not patient diagnosis"
+            "reason_excluded": "Family history only - note states 'mother has diabetes', patient does not have diabetes diagnosis"
         },
         {
-            "code": "M79.3",
-            "description": "Panniculitis, unspecified",
-            "reason_excluded": "NLP misinterpreted patient surname 'Panniculitis' as medical condition"
-        },
-        {
-            "code": "Z91.19",
-            "description": "Patient's noncompliance with other medical treatment",
-            "reason_excluded": "Social history context - 'patient's dog requires insulin', NLP confused pet care with patient treatment"
+            "code": "I25.10",
+            "description": "Atherosclerotic heart disease of native coronary artery without angina",
+            "reason_excluded": "Past medical history mentioned but NOT addressed, evaluated, or treated in this visit"
         },
         {
             "code": "J45.909",
             "description": "Unspecified asthma, uncomplicated",
-            "reason_excluded": "Negated finding - note states 'denies asthma', no current evidence"
+            "reason_excluded": "Negated - note explicitly states 'patient denies asthma', no evidence of asthma"
+        },
+        {
+            "code": "N18.3",
+            "description": "Chronic kidney disease, stage 3",
+            "reason_excluded": "Mentioned in differential diagnosis but ruled out by lab results, not confirmed diagnosis"
         }
     ],
     "primary_drg": "291",
@@ -250,7 +264,7 @@ Return a JSON object with this structure:
     "vha_complexity_level": "4",
     "vha_complexity_description": "Very High",
     "vha_complexity_rationale": "<p>Multiple severe chronic conditions including heart failure, diabetes with complications, chronic kidney disease. High pharmacy burden. Requires intensive monitoring and frequent follow-up.</p>",
-    "clinical_reasoning": "<p><strong>MS-DRG Determination:</strong><br>Principal diagnosis of heart failure with documented MCC (acute kidney injury) supports DRG 291. This is appropriate for inpatient encounter.<br><br><strong>Code Validation:</strong><br>Reviewed all NLP-extracted codes for clinical validity and billing appropriateness. Excluded symptom codes and undocumented conditions.</p>",
+    "clinical_reasoning": "<p><strong>Code Validation Summary:</strong><br>Reviewed all NLP-extracted codes for clinical validity and billing appropriateness. Selected codes with clear documentation support. Excluded symptom codes, family history mentions, and undocumented conditions. Principal diagnosis and comorbidities appropriately captured for accurate VERA complexity assessment.</p>",
     "confidence_score": 0.92,
     "supporting_concepts": ["Heart failure", "Acute kidney injury", "Diabetes with complications"],
     "recommendations": {
@@ -355,20 +369,25 @@ Return a JSON object with this structure:
             prompt_parts.append("\n")
         
         prompt_parts.append("**Instructions:**\n")
-        prompt_parts.append("1. **CAREFULLY** review the clinical note context for each ICD-10 code above\n")
-        prompt_parts.append("2. **EXCLUDE** codes that are:\n")
-        prompt_parts.append("   - Patient/provider names misinterpreted as diseases\n")
-        prompt_parts.append("   - Social history mentions (pets, family members, occupational exposures without patient diagnosis)\n")
-        prompt_parts.append("   - Family history (conditions of relatives, not patient)\n")
-        prompt_parts.append("   - Negated or ruled out conditions\n")
+        prompt_parts.append("1. **CRITICAL**: Check if ANY codes match patient name or provider name - these MUST be excluded\n")
+        prompt_parts.append("2. **CAREFULLY** review the clinical note context for each ICD-10 code above\n")
+        prompt_parts.append("3. **EXCLUDE** codes that are:\n")
+        prompt_parts.append("   - Patient or provider names misinterpreted as diseases (e.g., patient 'Smith' → Smith fracture)\n")
+        prompt_parts.append("   - Family history ONLY (relatives' conditions, NOT patient's unless also documented for patient)\n")
+        prompt_parts.append("   - Social history mentions (pets, family activities, occupational context without patient diagnosis)\n")
+        prompt_parts.append("   - Past medical history NOT addressed in this visit (mentioned but no current treatment/evaluation)\n")
+        prompt_parts.append("   - Negated, denied, or ruled out conditions\n")
+        prompt_parts.append("   - Differential diagnosis that was ruled out or not confirmed\n")
         prompt_parts.append("   - Simple word misinterpretations by NLP\n")
-        prompt_parts.append("3. **KEEP** valid codes - aim for 5-10 primary diagnoses if supported by clinical documentation\n")
-        prompt_parts.append("   - Rank ALL kept codes by importance (1=most important for billing/DRG)\n")
-        prompt_parts.append("   - Include primary diagnosis, comorbidities, and chronic conditions\n")
-        prompt_parts.append("4. Determine the most appropriate MS-DRG code(s) based on your selected ICD-10 codes\n")
-        prompt_parts.append("5. Assess VHA VERA complexity level and provide coding recommendations\n")
-        prompt_parts.append("6. Return your analysis in the specified JSON format\n")
-        prompt_parts.append("\n**Remember**: Select MULTIPLE valid diagnoses (target 5-10 if available), not just one. When uncertain about NLP extraction accuracy, EXCLUDE the code with clear reasoning.\n")
+        prompt_parts.append("4. **KEEP** ONLY if condition is:\n")
+        prompt_parts.append("   - Actively addressed/treated/monitored by provider in THIS visit\n")
+        prompt_parts.append("   - Patient's chief complaint or current concern\n")
+        prompt_parts.append("   - Being managed with medications, procedures, or clinical decisions TODAY\n")
+        prompt_parts.append("5. Rank ALL kept codes by importance (1=most important for billing/DRG)\n")
+        prompt_parts.append("6. Determine MS-DRG based on your selected ICD-10 codes\n")
+        prompt_parts.append("7. Assess VHA VERA complexity level and provide coding recommendations\n")
+        prompt_parts.append("8. Return your analysis in the specified JSON format\n")
+        prompt_parts.append("\n**CRITICAL RULE**: When uncertain if a code is actually for THIS PATIENT in THIS VISIT, EXCLUDE it with clear reasoning. Default to EXCLUDE, not include.\n")
         
         return "".join(prompt_parts)
     
