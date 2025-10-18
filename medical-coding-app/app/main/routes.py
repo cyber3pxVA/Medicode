@@ -167,7 +167,25 @@ def ai_analyze_codes():
         if gender_match:
             patient_info['gender'] = gender_match.group(1)
         
+        # Try to extract patient name from common patterns
+        name_patterns = [
+            r'Patient:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',  # Patient: John Smith
+            r'Pt:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',      # Pt: John Smith
+            r'Name:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',    # Name: John Smith
+            r'Mr\.\s+([A-Z][a-z]+)',                         # Mr. Smith
+            r'Mrs\.\s+([A-Z][a-z]+)',                        # Mrs. Smith
+            r'Ms\.\s+([A-Z][a-z]+)',                         # Ms. Smith
+        ]
+        
+        for pattern in name_patterns:
+            name_match = re.search(pattern, clinical_text[:500])  # Check first 500 chars
+            if name_match:
+                patient_info['patient_name'] = name_match.group(1)
+                print(f"DEBUG: Extracted patient name: {name_match.group(1)}")
+                break
+        
         print(f"DEBUG: Starting AI analysis for {len(codes)} concepts...")
+        print(f"DEBUG: Patient info: {patient_info}")
         openai_analysis = analyze_concepts_with_openai(
             concepts=codes,
             clinical_text=clinical_text,
