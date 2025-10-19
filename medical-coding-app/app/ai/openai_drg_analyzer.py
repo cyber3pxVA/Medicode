@@ -342,9 +342,18 @@ Return a JSON object with this structure:
             
             # HIGHLIGHT patient name if present
             if 'patient_name' in demographics:
-                prompt_parts.append(f"\n⚠️ **PATIENT NAME: {demographics['patient_name']}** ⚠️\n")
+                prompt_parts.append(f"\n⚠️⚠️⚠️ **PATIENT NAME: {demographics['patient_name']}** ⚠️⚠️⚠️\n")
                 prompt_parts.append(f"YOU MUST EXCLUDE any ICD-10 codes that match this name!\n")
-                prompt_parts.append(f"For example: If patient is '{demographics['patient_name']}', exclude any codes with '{demographics['patient_name']}' in the description.\n")
+                prompt_parts.append(f"For example: If patient is '{demographics['patient_name']}', exclude any codes with '{demographics['patient_name'].split()[-1]}' in the description.\n")
+            
+            # HIGHLIGHT provider names if present
+            if 'provider_names' in demographics:
+                prompt_parts.append(f"\n⚠️⚠️⚠️ **PROVIDER NAME(S): {demographics['provider_names']}** ⚠️⚠️⚠️\n")
+                prompt_parts.append(f"YOU MUST EXCLUDE any ICD-10 codes that match these provider names!\n")
+                for prov_name in demographics['provider_names'].split(','):
+                    prov_name = prov_name.strip()
+                    prompt_parts.append(f"For example: Provider '{prov_name}' → exclude any codes with '{prov_name}' in description\n")
+            
             prompt_parts.append("\n")
         
         if clinical_context:

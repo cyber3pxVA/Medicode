@@ -167,22 +167,59 @@ def ai_analyze_codes():
         if gender_match:
             patient_info['gender'] = gender_match.group(1)
         
-        # Try to extract patient name from common patterns
+        # Try to extract patient name from common patterns - CHECK FIRST 1000 CHARS
+        patient_name_found = False
         name_patterns = [
-            r'Patient:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',  # Patient: John Smith
-            r'Pt:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',      # Pt: John Smith
-            r'Name:\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)',    # Name: John Smith
-            r'Mr\.\s+([A-Z][a-z]+)',                         # Mr. Smith
-            r'Mrs\.\s+([A-Z][a-z]+)',                        # Mrs. Smith
-            r'Ms\.\s+([A-Z][a-z]+)',                         # Ms. Smith
+            r'(?:Patient|Pt\.?|Name):\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+)',  # Patient: John Smith
+            r'(?:Mr\.|Mrs\.|Ms\.|Dr\.)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)',  # Mr. Smith or Mr. John Smith
+            r'^([A-Z][a-zA-Z]+\s+[A-Z][a-zA-Z]+)\s*\n',  # First line: John Smith
+            r'Patient\s+Name:\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+)',  # Patient Name: John Smith
         ]
         
+        search_text = clinical_text[:1000]  # Check first 1000 chars
         for pattern in name_patterns:
-            name_match = re.search(pattern, clinical_text[:500])  # Check first 500 chars
+            name_match = re.search(pattern, search_text, re.MULTILINE | re.IGNORECASE)
             if name_match:
-                patient_info['patient_name'] = name_match.group(1)
-                print(f"DEBUG: Extracted patient name: {name_match.group(1)}")
+                patient_info['patient_name'] = name_match.group(1).strip()
+                print(f"DEBUG: Extracted patient name from pattern '{pattern}': {name_match.group(1).strip()}")
+                patient_name_found = True
                 break
+        
+        # CRITICAL: If we can't extract patient name, try to get it from the ENTIRE first 3 lines
+        if not patient_name_found:
+            # Check if clinical text starts with a name on first line
+            first_lines = clinical_text.split('\n')[:3]
+            for line in first_lines:
+                # Look for pattern like "John Smith" or "Patient: John Smith"
+                line_match = re.search(r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b', line.strip())
+                if line_match:
+                    potential_name = line_match.group(1)
+                    # Exclude common non-name phrases
+                    if potential_name not in ['Chief Complaint', 'History Of', 'Physical Exam', 'Assessment Plan']:
+                        patient_info['patient_name'] = potential_name
+                        print(f"DEBUG: Extracted patient name from first lines: {potential_name}")
+                        patient_name_found = True
+                        break
+        
+        if not patient_name_found:
+            print(f"WARNING: Could not extract patient name from clinical text")
+            print(f"DEBUG: First 200 chars: {clinical_text[:200]}")
+        
+        # ALWAYS extract provider names (Dr. Smith, etc.) - these can also cause false positives
+        provider_names = []
+        provider_patterns = [
+            r'Dr\.?\s+([A-Z][a-zA-Z]+)',  # Dr. Smith or Dr Smith
+            r'(?:signed by|Provider|Physician):\s*(?:Dr\.?\s*)?([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)*)',  # Electronically signed by Dr. Sarah Johnson
+        ]
+        for pattern in provider_patterns:
+            for match in re.finditer(pattern, clinical_text, re.IGNORECASE):
+                provider_name = match.group(1).strip()
+                if provider_name not in provider_names:
+                    provider_names.append(provider_name)
+                    print(f"DEBUG: Found provider name: {provider_name}")
+        
+        if provider_names:
+            patient_info['provider_names'] = ', '.join(provider_names)
         
         print(f"DEBUG: Starting AI analysis for {len(codes)} concepts...")
         print(f"DEBUG: Patient info: {patient_info}")
