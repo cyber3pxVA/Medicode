@@ -114,49 +114,46 @@ class OpenAIDRGAnalyzer:
 
 **Your Task:**
 
-1. **Review and Validate ALL ICD-10 Codes** from the prior NLP routine:
-   - Review ALL ICD-10 codes provided by the NLP extraction
-   - For EACH code, determine if it should be KEPT or EXCLUDED
-   - **KEPT codes**: ONLY conditions that are:
-     * **Actively addressed in THIS visit** by the provider (treatment, evaluation, or monitoring)
-     * **Patient's current concern** mentioned as chief complaint or reason for visit
-     * **Being actively managed** with prescriptions, procedures, or clinical decisions TODAY
-   - **Target**: Aim for 5-10 primary diagnoses IF clinically supported and relevant to THIS encounter
-   - **EXCLUDED codes**: MUST be excluded if ANY of these apply:
-     * **PATIENT NAME**: Code matches patient surname or first name (e.g., patient "John Smith" → Smith fracture MUST be excluded)
-     * **PROVIDER NAME**: Code matches provider's name in signature or header
-     * **PATIENT NAME**: Code matches patient surname or first name (e.g., patient "John Smith" → Smith fracture MUST be excluded)
-     * **PROVIDER NAME**: Code matches provider's name in signature or header
-     * **NLP Misinterpretation**: Common words misidentified as medical terms (e.g., "may" → May disease)
-     * **Family History ONLY**: Conditions of relatives NOT the patient (e.g., "mother has diabetes", "father died of MI") - EXCLUDE unless patient also has the condition
-     * **Social History**: Pets, family members, occupational exposures mentioned in passing without patient diagnosis
-     * **Past Medical History ONLY**: "History of" conditions with NO current evidence, treatment, or monitoring in this visit
-     * **Negated/Ruled Out**: Explicitly denied or ruled out (e.g., "denies chest pain", "no diabetes", "rules out MI")
-     * **Not Addressed This Visit**: Condition mentioned but NOT evaluated, treated, or managed in this encounter
-     * **Differential Diagnosis**: Conditions considered but ruled out or not confirmed
-     * **Patient Education**: Conditions discussed hypothetically for prevention/education, not actual diagnoses
-     * **Insufficient Documentation**: Cannot confirm patient actually has this condition based on note
-     * **Symptom Code**: Use diagnosis code instead when underlying cause is documented
-     * **Duplicate/Non-Specific**: More specific code available
-   - Do NOT add any new ICD-10 codes not provided by NLP
-   - Prioritize codes for conditions actively managed in THIS encounter
-   - **Default to EXCLUDE** - Only keep codes with crystal-clear evidence that the patient HAS this condition AND it's relevant to this visit
-   - **CRITICAL**: Do NOT make up diagnoses, complications, or severity levels not explicitly documented in the clinical note
-   - **CRITICAL**: Do NOT upgrade severity (e.g., "uncomplicated" to "with complications") unless explicitly stated
-   - **CRITICAL**: Use ONLY the ICD-10 codes provided by NLP - do NOT invent new codes or modify existing ones
+**STEP 1: INDEPENDENT ANALYSIS - Review the Clinical Note**
+   - Read the clinical note carefully and identify ALL billable ICD-10 codes based on the documentation
+   - Consider diagnoses, symptoms, conditions that are:
+     * Actively addressed, evaluated, or treated in THIS visit
+     * Patient's current concerns or chief complaints
+     * Being actively managed with medications, procedures, or clinical decisions
+   - Rank your identified codes by:
+     * **Relevance**: How central is this to the patient's visit and care?
+     * **Complexity**: Does this contribute to patient complexity and resource utilization?
+     * **Billing Priority**: Principal diagnosis first, then major comorbidities, then secondary conditions
+   - **CRITICAL RULES for your independent analysis**:
+     * Do NOT code family history (mother's diabetes, father's MI) unless patient ALSO has the condition
+     * Do NOT code negated conditions (denies asthma, no diabetes, ruled out MI)
+     * Do NOT code differential diagnoses that were ruled out
+     * Do NOT code past medical history if NOT addressed in this visit
+     * Do NOT invent or upgrade severity - code only what is explicitly documented
+     * Do NOT code patient/provider names as diseases (patient "Smith" ≠ Smith's fracture)
+   - List 5-15 ICD-10 codes ranked by relevance and complexity
 
-2. **Assign MS-DRG Code** (if applicable for inpatient encounters):
-   - Determine the appropriate MS-DRG based ONLY on selected ICD-10 codes that are explicitly documented
+**STEP 2: COMPARE WITH NLP RESULTS**
+   - You will be provided with ICD-10 codes extracted by a prior NLP routine
+   - Compare YOUR codes (from Step 1) with the NLP codes
+   - **KEEP ONLY CODES THAT APPEAR IN BOTH LISTS** (the intersection/overlap)
+   - This validates that both AI analysis AND automated NLP agree on these codes
+   - If a code is in your list but NOT in NLP results → EXCLUDE it (add to excluded list with reason)
+   - If a code is in NLP results but NOT in your list → EXCLUDE it (add to excluded list with reason)
+   - **ONLY codes agreed upon by BOTH systems should be kept**
+
+**STEP 3: Assign MS-DRG Code** (if applicable for inpatient encounters):
+   - Determine the appropriate MS-DRG based ONLY on the validated codes (intersection from Step 2)
    - Consider principal diagnosis, secondary diagnoses, and complications/comorbidities (CC/MCC)
    - **CRITICAL**: Do NOT maximize DRG by inventing complications or upgrading severity
-   - **CRITICAL**: Only assign CC/MCC if explicitly documented with supporting clinical evidence in the note
+   - **CRITICAL**: Only assign CC/MCC if explicitly documented with supporting clinical evidence
    - Provide DRG description and rationale for assignment
    - If outpatient encounter, note "Not Applicable - Outpatient"
 
-3. **Determine VHA Complexity Code** (VERA System):
+**STEP 4: Determine VHA Complexity Code** (VERA System):
    - Assign the appropriate **VHA/VA Complexity Level** based on VERA (Veterans Equitable Resource Allocation) guidelines
    - VHA Complexity Levels: **1 (Low), 2 (Moderate), 3 (High), 4 (Very High), 5 (Extremely High)**
-   - **CRITICAL**: Base complexity ONLY on documented conditions in the clinical note - do NOT assume or invent conditions
+   - **CRITICAL**: Base complexity ONLY on validated codes from Step 2
    - **CRITICAL**: Do NOT upgrade complexity by assuming severity not explicitly stated
    - Consider ONLY what is documented:
      * Number and severity of chronic conditions (as documented)
@@ -165,12 +162,11 @@ class OpenAIDRGAnalyzer:
      * Age and functional status (if stated)
      * Resource utilization and care intensity (based on visit content)
      * Pharmacy complexity (based on medications listed)
-     * Multiple provider involvement (if documented)
    - Provide detailed rationale for the assigned VHA complexity level based on actual documentation
 
-4. **Provide VA-Specific Coding Recommendations**:
-   - **Maximize VERA Complexity**: Suggest strategies to accurately capture complexity based on what IS documented (not by inventing conditions)
-   - **Documentation Improvements**: Recommend clinical documentation that would support appropriate VERA complexity IF those conditions exist
+**STEP 5: Provide VA-Specific Coding Recommendations**:
+   - **Maximize VERA Complexity**: Suggest strategies to accurately capture complexity based on what IS documented
+   - **Documentation Improvements**: Recommend clinical documentation that would support appropriate VERA complexity
    - **Service-Connected Conditions**: Identify opportunities to document VA service-connected disabilities IF they exist
    - **Better Coding**: Suggest more accurate and complete coding based ONLY on documented information
    - **CRITICAL**: Recommendations should be for FUTURE documentation improvements, NOT to add information to THIS visit's coding
@@ -405,49 +401,45 @@ Return a JSON object with this structure:
                 prompt_parts.append(f"- {med['term']}\n")
             prompt_parts.append("\n")
         
-        prompt_parts.append("**Instructions:**\n")
-        prompt_parts.append("**STEP 0 - IDENTIFY NAMES (DO THIS FIRST!):**\n")
-        prompt_parts.append("   a. Read the clinical note and write down the PATIENT'S NAME (first name, last name, any nicknames)\n")
-        prompt_parts.append("   b. Write down the PROVIDER'S NAME (doctor, nurse, any staff mentioned)\n")
-        prompt_parts.append("   c. Write down any OTHER PERSON'S NAMES mentioned (family members, emergency contacts)\n")
-        prompt_parts.append("   d. For EACH ICD-10 code below, check if the code description contains ANY of these names\n")
-        prompt_parts.append("   e. If ANY name matches an ICD-10 code description → IMMEDIATELY EXCLUDE IT\n")
-        prompt_parts.append("   Examples of NAME-based exclusions:\n")
-        prompt_parts.append("      • Patient: 'John Smith' → Smith's fracture (S52.541A) = EXCLUDE\n")
-        prompt_parts.append("      • Patient: 'Sarah Parkinson' → Parkinson's disease (G20) = EXCLUDE\n")
-        prompt_parts.append("      • Provider: 'Dr. Bell' → Bell's palsy (G51.0) = EXCLUDE\n")
-        prompt_parts.append("      • Mother: 'Mary Crohn' → Crohn's disease (K50.90) = EXCLUDE (if mother's name)\n")
-        prompt_parts.append("      • Patient: 'Turner' → Turner syndrome (Q96.9) = EXCLUDE\n")
-        prompt_parts.append("\n")
-        prompt_parts.append("1. **AFTER checking names**, review the clinical note context for each remaining ICD-10 code\n")
-        prompt_parts.append("2. **EXCLUDE** codes that are:\n")
-        prompt_parts.append("   - Matching ANY person's name mentioned in the note (MOST IMPORTANT CHECK)\n")
-        prompt_parts.append("   - Family history ONLY (relatives' conditions, NOT patient's unless also documented for patient)\n")
-        prompt_parts.append("   - Social history mentions (pets, family activities, occupational context without patient diagnosis)\n")
-        prompt_parts.append("   - Past medical history NOT addressed in this visit (mentioned but no current treatment/evaluation)\n")
-        prompt_parts.append("   - Negated, denied, or ruled out conditions\n")
-        prompt_parts.append("   - Differential diagnosis that was ruled out or not confirmed\n")
-        prompt_parts.append("   - Simple word misinterpretations by NLP\n")
-        prompt_parts.append("3. **KEEP** ONLY if condition is:\n")
-        prompt_parts.append("   - NOT matching any person's name AND\n")
-        prompt_parts.append("   - Actively addressed/treated/monitored by provider in THIS visit\n")
-        prompt_parts.append("   - Patient's chief complaint or current concern\n")
-        prompt_parts.append("   - Being managed with medications, procedures, or clinical decisions TODAY\n")
-        prompt_parts.append("4. **DO NOT** make up diagnoses, complications, or severity levels not in the note\n")
-        prompt_parts.append("5. **DO NOT** upgrade ICD-10 codes (e.g., don't change 'uncomplicated' to 'with complications')\n")
-        prompt_parts.append("6. **DO NOT** add CC/MCC/complications to maximize DRG unless explicitly documented\n")
-        prompt_parts.append("7. Rank ALL kept codes by importance (1=most important for billing/DRG)\n")
-        prompt_parts.append("8. Determine MS-DRG based ONLY on documented codes and severity\n")
-        prompt_parts.append("9. Assess VHA VERA complexity based ONLY on what is documented\n")
-        prompt_parts.append("10. Return your analysis in the specified JSON format\n")
-        prompt_parts.append("\n**CRITICAL RULES**:\n")
-        prompt_parts.append("- FIRST: Check ALL ICD-10 codes against patient/provider/family member names - EXCLUDE any matches\n")
-        prompt_parts.append("- When uncertain if a code is for THIS PATIENT in THIS VISIT, EXCLUDE it with clear reasoning\n")
-        prompt_parts.append("- Default to EXCLUDE, not include\n")
-        prompt_parts.append("- Use ONLY codes provided by NLP - do NOT invent or modify codes\n")
-        prompt_parts.append("- Do NOT upgrade severity, complications, or DRG assignment beyond what is explicitly documented\n")
-        prompt_parts.append("- Be conservative and honest - code what is documented, not what might maximize reimbursement\n")
-        prompt_parts.append("- NAME MATCHING IS THE #1 PRIORITY - if a code description contains a person's name from the note, EXCLUDE IT\n")
+        prompt_parts.append("**YOUR TASK:**\n\n")
+        prompt_parts.append("**STEP 1: INDEPENDENT ANALYSIS**\n")
+        prompt_parts.append("First, read the clinical note above and independently identify the ICD-10 codes you would assign for billing.\n")
+        prompt_parts.append("List 5-15 ICD-10 codes ranked by:\n")
+        prompt_parts.append("  - Relevance to this visit\n")
+        prompt_parts.append("  - Complexity contribution\n")
+        prompt_parts.append("  - Billing priority (principal diagnosis first)\n")
+        prompt_parts.append("Remember:\n")
+        prompt_parts.append("  - Do NOT code family history unless patient also has condition\n")
+        prompt_parts.append("  - Do NOT code negated/ruled out conditions\n")
+        prompt_parts.append("  - Do NOT code past medical history if not addressed this visit\n")
+        prompt_parts.append("  - Do NOT code patient/provider names as diseases\n")
+        prompt_parts.append("  - Code only what is explicitly documented\n\n")
+        
+        prompt_parts.append("**STEP 2: COMPARE WITH NLP RESULTS**\n")
+        prompt_parts.append("The NLP system extracted the following ICD-10 codes (listed above).\n")
+        prompt_parts.append("Compare YOUR codes from Step 1 with these NLP codes.\n")
+        prompt_parts.append("**KEEP ONLY THE INTERSECTION** - codes that appear in BOTH lists:\n")
+        prompt_parts.append("  - If code is in YOUR list AND in NLP list → KEEP (both systems agree)\n")
+        prompt_parts.append("  - If code is in YOUR list but NOT in NLP list → EXCLUDE (explain why NLP might have missed it)\n")
+        prompt_parts.append("  - If code is in NLP list but NOT in YOUR list → EXCLUDE (explain why it's not appropriate)\n")
+        prompt_parts.append("This validates that both AI analysis AND automated NLP agree on these codes.\n\n")
+        
+        prompt_parts.append("**STEP 3: ASSIGN MS-DRG**\n")
+        prompt_parts.append("Based ONLY on the validated codes (intersection from Step 2), determine MS-DRG.\n")
+        prompt_parts.append("Do NOT invent complications or upgrade severity.\n\n")
+        
+        prompt_parts.append("**STEP 4: ASSESS VHA VERA COMPLEXITY**\n")
+        prompt_parts.append("Based on validated codes, assign VHA complexity level (1-5).\n\n")
+        
+        prompt_parts.append("**STEP 5: PROVIDE RECOMMENDATIONS**\n")
+        prompt_parts.append("Suggest documentation improvements for future visits.\n\n")
+        
+        prompt_parts.append("**CRITICAL RULES:**\n")
+        prompt_parts.append("- Identify YOUR codes independently FIRST, then compare with NLP\n")
+        prompt_parts.append("- ONLY keep codes agreed upon by BOTH systems (the intersection)\n")
+        prompt_parts.append("- Explain why codes were excluded (in YOUR list but not NLP, or vice versa)\n")
+        prompt_parts.append("- Do NOT invent or upgrade severity\n")
+        prompt_parts.append("- Be conservative and honest\n")
         
         return "".join(prompt_parts)
     
